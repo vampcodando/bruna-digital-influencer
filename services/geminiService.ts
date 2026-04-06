@@ -1,0 +1,152 @@
+import { GoogleGenAI } from "@google/genai";
+import { ImageFile, AspectRatio } from '../types';
+
+// Chave direta e limpa para evitar qualquer erro de ambiente ou caractere invisível
+const MINHA_CHAVE_MESTRA = 'AIzaSyCa8XHvPSvK_PlJ37Z4kWKhVKO_x-0cTSQ';
+
+const getAI = () => {
+    // No navegador (Vite), o SDK exige a chave dentro de um objeto
+    return new GoogleGenAI({ apiKey: MINHA_CHAVE_MESTRA.trim() });
+};
+
+// --- GERAÇÃO DE IMAGEM (IMAGEN 4.0) ---
+export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
+    const ai = getAI();
+    const response = await (ai as any).models.generateImages({
+        model: 'imagen-4.0-generate-001',
+        prompt: prompt,
+        config: {
+            numberOfImages: 1,
+            outputMimeType: 'image/jpeg',
+            aspectRatio: aspectRatio,
+        },
+    });
+
+    if (response.generatedImages && response.generatedImages.length > 0) {
+        const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
+        return `data:image/jpeg;base64,${base64ImageBytes}`;
+    }
+    throw new Error("Falha na geração da imagem.");
+};
+
+// --- EDIÇÃO DE IMAGEM (GEMINI 2.5 FLASH) ---
+export const editImage = async (
+    mainImage: ImageFile, 
+    prompt: string, 
+    aspectRatio: AspectRatio, 
+    referenceImage?: ImageFile
+): Promise<string> => {
+    const ai = getAI();
+    const parts: any[] = [{ inlineData: { data: mainImage.base64, mimeType: mainImage.mimeType } }];
+    
+    if (referenceImage) {
+        parts.push({ inlineData: { data: referenceImage.base64, mimeType: referenceImage.mimeType } });
+    }
+    parts.push({ text: prompt });
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: { parts },
+        config: { imageConfig: { aspectRatio } } as any,
+    });
+
+    for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    }
+    throw new Error("Falha ao editar imagem.");
+};
+
+// --- VÍDEO (RESTAURADO PARA 8 SEGUNDOS COM VEO 3.1) ---
+export const generateVideo = async (
+    image: ImageFile, 
+    prompt: string, 
+    aspectRatio: '16:9' | '9:16', 
+    onProgress: (message: string) => void,
+    apiKey?: string, 
+    durationSeconds: 4 | 6 | 8 = 8 
+): Promise<string> => {
+    
+    const ai = getAI();
+    onProgress("Iniciando geração de vídeo...");
+    
+    let operation = await (ai as any).models.generateVideos({
+        model: 'veo-3.1-lite-generate-preview', 
+        prompt,
+        image: { imageBytes: image.base64, mimeType: image.mimeType },
+        config: { 
+            numberOfVideos: 1, 
+            resolution: '720p', 
+            aspectRatio,
+            durationSeconds 
+        }
+    });
+
+    while (!operation.done) {
+        onProgress("Processando vídeo (8s)... aguarde.");
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        operation = await (ai as any).operations.getVideosOperation({ operation });
+    }
+
+    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+    if (!downloadLink) throw new Error("Link do vídeo não gerado.");
+
+    // Busca o vídeo usando a chave direta no header para evitar o erro 403
+    const videoResponse = await fetch(downloadLink, {
+        method: 'GET',
+        headers: { 'x-goog-api-key': MINHA_CHAVE_MESTRA.trim() },
+    });
+
+    if (!videoResponse.ok) throw new Error("Erro ao baixar o vídeo gerado.");
+
+    const videoBlob = await videoResponse.blob();
+    return URL.createObjectURL(videoBlob);
+};
+
+// --- FUNÇÕES AUXILIARES ---
+export const analyzeImage = async (image: ImageFile): Promise<string> => {
+    const ai = getAI();
+    const contents = {
+        parts: [
+            { inlineData: { mimeType: image.mimeType, data: image.base64 } },
+            { text: "Descreva esta imagem para fins de acessibilidade e contexto." }
+        ]
+    };
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents
+    });
+    return response.text;
+};
+
+export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
+    const ai = getAI();
+    let promptText = `Crie um prompt para geração de imagem de fundo. Tema: "${description}". Estética limpa, sem textos.`;
+    const parts: any[] = [{ text: promptText }];
+    if (reference) {
+        parts.unshift({ inlineData: { mimeType: reference.mimeType, data: reference.base64 } });
+    }
+    const response = await ai.models.generateContent({
+        model: 'gemini-1.5-flash',
+        contents: [{ parts }]
+    });
+    return response.text;
+};
+
+export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
+    const ai = getAI();
+    const parts: any[] = images.map(img => ({
+        inlineData: { data: img.base64, mimeType: img.mimeType }
+    }));
+    parts.push({ text: `Integre estes elementos em uma cena cinematográfica: ${prompt}` });
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: { parts },
+        config: { imageConfig: { aspectRatio } } as any,
+    });
+
+    for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    }
+    throw new Error("Falha ao gerar cena.");
+};
