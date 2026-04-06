@@ -9,7 +9,7 @@ import { ImageFile, AspectRatio } from '../types';
 const getApiKey = (): string => {
     // @ts-ignore - Isso silencia o erro do compilador apenas nesta linha
     const envKey = (import.meta as any).env?.VITE_API_KEY;
-    const hardcodedKey = 'AIzaSyCa8XHvPSvK_PlJ37Z4kWKhVKO_x-0cTSQ';
+    const hardcodedKey = '';
     
     const key = envKey || hardcodedKey;
     return key.trim();
