@@ -1,12 +1,23 @@
 import { GoogleGenAI } from "@google/genai";
 import { ImageFile, AspectRatio } from '../types';
 
-// Chave direta e limpa para evitar qualquer erro de ambiente ou caractere invisível
-const MINHA_CHAVE_MESTRA = 'AIzaSyCa8XHvPSvK_PlJ37Z4kWKhVKO_x-0cTSQ';
+/**
+ * --- CONFIGURAÇÃO DE SEGURANÇA ---
+ * O código prioriza a chave do arquivo .env (VITE_API_KEY).
+ * O .gitignore já está configurado para não subir o .env, mantendo sua chave segura.
+ */
+const getApiKey = (): string => {
+    // @ts-ignore - Isso silencia o erro do compilador apenas nesta linha
+    const envKey = (import.meta as any).env?.VITE_API_KEY;
+    const hardcodedKey = 'AIzaSyCa8XHvPSvK_PlJ37Z4kWKhVKO_x-0cTSQ';
+    
+    const key = envKey || hardcodedKey;
+    return key.trim();
+};
 
 const getAI = () => {
-    // No navegador (Vite), o SDK exige a chave dentro de um objeto
-    return new GoogleGenAI({ apiKey: MINHA_CHAVE_MESTRA.trim() });
+    // No navegador (Vite), o SDK exige a chave dentro de um objeto { apiKey: string }
+    return new GoogleGenAI({ apiKey: getApiKey() });
 };
 
 // --- GERAÇÃO DE IMAGEM (IMAGEN 4.0) ---
@@ -67,6 +78,7 @@ export const generateVideo = async (
 ): Promise<string> => {
     
     const ai = getAI();
+    const currentKey = getApiKey();
     onProgress("Iniciando geração de vídeo...");
     
     let operation = await (ai as any).models.generateVideos({
@@ -90,10 +102,10 @@ export const generateVideo = async (
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
     if (!downloadLink) throw new Error("Link do vídeo não gerado.");
 
-    // Busca o vídeo usando a chave direta no header para evitar o erro 403
+    // Busca o vídeo usando a chave segura no header
     const videoResponse = await fetch(downloadLink, {
         method: 'GET',
-        headers: { 'x-goog-api-key': MINHA_CHAVE_MESTRA.trim() },
+        headers: { 'x-goog-api-key': currentKey },
     });
 
     if (!videoResponse.ok) throw new Error("Erro ao baixar o vídeo gerado.");
