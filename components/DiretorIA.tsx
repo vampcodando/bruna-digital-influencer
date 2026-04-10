@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React, { useState } from 'react';
+import { SparklesIcon, FilmIcon, PencilSquareIcon, SquaresPlusIcon } from './Icons';
 
 interface DiretorIAProps {
   scriptsSalvos: any[];
@@ -7,139 +8,215 @@ interface DiretorIAProps {
 }
 
 export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsSalvos }) => {
+  // Estados de Configuração Técnica
   const [produto, setProduto] = useState("");
   const [numCenas, setNumCenas] = useState(3);
-  const [estiloIluminacao, setEstiloIluminacao] = useState("Professional Studio Lighting");
+  const [iluminacao, setIluminacao] = useState("Professional Studio Softbox");
+  const [enquadramento, setEnquadramento] = useState("Medium Shot");
+  const [lente, setLente] = useState("85mm (Portrait/Bokeh)");
+  const [movimento, setMovimento] = useState("Static");
+  const [expressao, setExpressao] = useState("Smiling/Persuasive");
 
   const gerarDirecaoTecnica = () => {
-    // A regra de ouro: Personagem Bruna sempre idêntica
-    const promptBaseBruna = "[CHARACTER CLONE: BRUNA] Brazilian digital influencer, ultra-realistic skin texture, detailed eyes, perfect teeth, natural expressions.";
+    // Regra de Ouro: Consistência da Bruna e Micro-texturas
+    const promptBaseBruna = "[CHARACTER CLONE: BRUNA] Brazilian influencer, ultra-realistic 8k, skin micro-texture, perfect teeth, detailed eyes.";
     
     const novasCenas = Array.from({ length: numCenas }, (_, i) => {
-      // Lógica de variação de câmera por cena
-      let camera = "Medium Shot, eye level";
-      let movimento = "Slight head tilt and smiling";
-      let roteiroVoz = "";
+      const isFirst = i === 0;
+      const isLast = i === numCenas - 1;
+      
+      let camCena = enquadramento;
+      let falaCena = "";
 
-      if (i === 0) {
-        camera = "Extreme Close-up on face";
-        movimento = "Looking at camera, energetic expression";
-        roteiroVoz = `Ei gente! Olha a perfeição desse ${produto} que acabou de chegar!`;
-      } else if (i === numCenas - 1) {
-        camera = "Wide shot, showing the product environment";
-        movimento = "Pointing to the link below, happy face";
-        roteiroVoz = `Corre no link da bio e garante o seu ${produto} agora mesmo!`;
+      // Lógica de Diretor: Hook -> Body -> CTA
+      if (isFirst) {
+        camCena = "Extreme Close-up";
+        falaCena = `Gente, olhem só a qualidade desse ${produto}! É surreal.`;
+      } else if (isLast) {
+        camCena = "Wide Shot";
+        falaCena = `Não perde tempo, o link do ${produto} está aqui embaixo com desconto!`;
       } else {
-        camera = "Close-up on hands and product";
-        movimento = "Showing details and texture of the material";
-        roteiroVoz = `A qualidade do material é de outro mundo, o toque é super macio.`;
+        falaCena = `O acabamento e os detalhes desse ${produto} mostram que é premium de verdade.`;
       }
 
       return {
         id: i + 1,
-        visualPrompt: `${promptBaseBruna} Camera: ${camera}. Action: ${movimento}. Environment: ${produto}. Style: ${estiloIluminacao}, 8k, highly detailed, TikTok Shop aesthetic.`,
-        audioScript: roteiroVoz,
-        tecnico: `Duração: 8s | Estabilidade: 10 | Motion: 5`
+        visualPrompt: `${promptBaseBruna} Camera: ${camCena}, Lens: ${lente}. Action: ${movimento}, Expression: ${expressao}. Environment: ${produto}. Style: ${iluminacao}, TikTok Shop aesthetic.`,
+        audioScript: falaCena,
+        tipo: isFirst ? "HOOK" : isLast ? "CTA" : "BODY"
       };
     });
 
     setScriptsSalvos(novasCenas);
   };
 
+  // Função para editar individualmente antes de copiar
+  const atualizarCenaManual = (index: number, campo: string, valor: string) => {
+    const novosScripts = [...scriptsSalvos];
+    novosScripts[index][campo] = valor;
+    setScriptsSalvos(novosScripts);
+  };
+
   return (
     <div className="flex flex-col gap-6 w-full text-left">
-      {/* Painel de Controle do Diretor */}
-      <div className="bg-zinc-900/90 p-6 rounded-2xl border border-red-900/40 shadow-2xl">
-        <div className="flex justify-between items-center mb-6 border-b border-red-900/20 pb-4">
+      {/* PAINEL DE CONTROLE DO DIRETOR */}
+      <div className="bg-zinc-900/95 p-6 rounded-3xl border border-red-900/40 shadow-2xl">
+        <div className="flex justify-between items-center mb-8 border-b border-red-900/20 pb-4">
           <h2 className="text-white font-black tracking-tighter text-2xl uppercase flex items-center gap-3">
-            <span className="text-red-600">🎬</span> Diretor de IA Pro
+            <FilmIcon className="text-red-600 w-8 h-8" /> Diretor de IA Pro
           </h2>
-          <span className="text-[10px] bg-red-900/30 text-red-500 px-3 py-1 rounded-full font-bold border border-red-900/50">
-            MODO: TIKTOK SHOP
-          </span>
+          <div className="flex gap-2">
+            <span className="text-[10px] bg-red-900/20 text-red-500 px-3 py-1 rounded-full font-bold border border-red-900/30">SC INTERNACIONAL PROJECT</span>
+            <span className="text-[10px] bg-zinc-800 text-zinc-400 px-3 py-1 rounded-full font-bold">V.2.0</span>
+          </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-4">
-            <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest">Produto ou Ação Central</label>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* COLUNA 1: PRODUTO */}
+          <div className="lg:col-span-1 space-y-4">
+            <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
+              <PencilSquareIcon className="w-3 h-3"/> Descrição do Produto
+            </label>
             <textarea 
-              className="w-full bg-black p-4 text-white border border-zinc-800 rounded-xl focus:border-red-600 outline-none transition-all placeholder:text-zinc-800 h-32 resize-none shadow-inner"
-              placeholder="Ex: Jogo de lençol de cetim vermelho premium..."
+              className="w-full bg-black p-4 text-white border border-zinc-800 rounded-2xl focus:border-red-600 outline-none transition-all h-[245px] resize-none text-sm leading-relaxed"
+              placeholder="Descreva o produto ou a ação principal..."
               value={produto}
-              onChange={(e: any) => setProduto(e.target.value)}
+              onChange={(e) => setProduto(e.target.value)}
             />
           </div>
 
-          <div className="space-y-6">
-            <div>
-              <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest block mb-2">Iluminação e Estilo</label>
-              <select 
-                className="w-full bg-black border border-zinc-800 p-3 rounded-lg text-white text-sm outline-none focus:border-red-600"
-                value={estiloIluminacao}
-                onChange={(e: any) => setEstiloIluminacao(e.target.value)}
-              >
-                <option>Professional Studio Lighting</option>
-                <option>Luxury Soft Daylight</option>
-                <option>Cyberpunk Neon Marketing</option>
-                <option>Warm Golden Hour</option>
-              </select>
-            </div>
+          {/* COLUNA 2: PARÂMETROS CÂMERA */}
+          <div className="space-y-4 bg-black/40 p-5 rounded-2xl border border-zinc-800">
+             <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
+               <SquaresPlusIcon className="w-3 h-3"/> Configuração de Câmera
+             </label>
+             
+             <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <p className="text-[9px] text-zinc-600 uppercase mb-1 font-bold">Enquadramento</p>
+                  <select value={enquadramento} onChange={(e)=>setEnquadramento(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 p-2 rounded-lg text-xs text-white outline-none focus:border-red-600">
+                    <option>Extreme Close-up</option>
+                    <option>Close-up</option>
+                    <option>Medium Shot</option>
+                    <option>Wide Shot</option>
+                  </select>
+                </div>
 
-            <div className="flex items-center justify-between bg-black p-4 rounded-xl border border-zinc-800">
-              <span className="text-zinc-400 text-xs font-bold uppercase">Total de Cenas</span>
-              <div className="flex items-center gap-4">
-                <button onClick={() => setNumCenas(Math.max(1, numCenas - 1))} className="text-red-500 hover:scale-125 transition-transform font-black text-xl">-</button>
-                <span className="text-white font-mono text-xl w-8 text-center">{numCenas}</span>
-                <button onClick={() => setNumCenas(numCenas + 1)} className="text-red-500 hover:scale-125 transition-transform font-black text-xl">+</button>
-              </div>
-            </div>
+                <div>
+                  <p className="text-[9px] text-zinc-600 uppercase mb-1 font-bold">Lente Cinematográfica</p>
+                  <select value={lente} onChange={(e)=>setLente(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 p-2 rounded-lg text-xs text-white outline-none focus:border-red-600">
+                    <option>85mm (Portrait/Bokeh)</option>
+                    <option>35mm (Standard)</option>
+                    <option>24mm (Wide Angle)</option>
+                    <option>Macro Lens</option>
+                  </select>
+                </div>
 
-            <button 
-              onClick={gerarDirecaoTecnica} 
-              className="w-full bg-red-700 hover:bg-red-600 text-white font-black py-4 rounded-xl uppercase tracking-[0.2em] transition-all active:scale-95 shadow-lg shadow-red-900/30"
-            >
-              Gerar Roteiro Técnico
-            </button>
+                <div>
+                  <p className="text-[9px] text-zinc-600 uppercase mb-1 font-bold">Movimento de Cena</p>
+                  <select value={movimento} onChange={(e)=>setMovimento(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 p-2 rounded-lg text-xs text-white outline-none focus:border-red-600">
+                    <option>Static</option>
+                    <option>Slow Zoom In</option>
+                    <option>Pan Left to Right</option>
+                    <option>Handheld Shake</option>
+                  </select>
+                </div>
+             </div>
+          </div>
+
+          {/* COLUNA 3: PERSONA & GERAÇÃO */}
+          <div className="space-y-4 bg-black/40 p-5 rounded-2xl border border-zinc-800">
+             <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
+               <SparklesIcon className="w-3 h-3"/> Direção da Bruna
+             </label>
+
+             <div className="space-y-4">
+                <div>
+                  <p className="text-[9px] text-zinc-600 uppercase mb-1 font-bold">Expressão Facial</p>
+                  <select value={expressao} onChange={(e)=>setExpressao(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 p-2 rounded-lg text-xs text-white outline-none focus:border-red-600">
+                    <option>Smiling/Persuasive</option>
+                    <option>Surprised/Energetic</option>
+                    <option>Serious/Professional</option>
+                    <option>Relaxed/Natural</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-between bg-zinc-900 p-3 rounded-xl">
+                  <span className="text-zinc-400 text-[10px] font-bold uppercase">Cenas</span>
+                  <div className="flex items-center gap-4">
+                    <button onClick={() => setNumCenas(Math.max(1, numCenas - 1))} className="text-red-500 font-black">-</button>
+                    <span className="text-white font-mono">{numCenas}</span>
+                    <button onClick={() => setNumCenas(numCenas + 1)} className="text-red-500 font-black">+</button>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={gerarDirecaoTecnica} 
+                  className="w-full bg-red-700 hover:bg-red-600 text-white font-black py-4 rounded-xl uppercase tracking-widest transition-all shadow-lg shadow-red-900/20 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <SparklesIcon className="w-5 h-5"/> Gerar Roteiro Pro
+                </button>
+             </div>
           </div>
         </div>
       </div>
 
-      {/* Exibição das Cenas Geradas */}
-      <div className="grid gap-4">
+      {/* LISTAGEM DE CENAS COM EDITOR LIVE */}
+      <div className="grid gap-6">
         {scriptsSalvos && scriptsSalvos.length > 0 ? (
           scriptsSalvos.map((cena: any, idx: number) => (
-            <div key={idx} className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden hover:border-red-600/50 transition-colors shadow-xl">
-              <div className="bg-zinc-900 px-5 py-2 border-b border-zinc-800 flex justify-between items-center">
-                <span className="text-red-600 font-black text-xs uppercase tracking-widest">CENA {cena.id}</span>
-                <span className="text-[9px] text-zinc-600 font-mono italic">{cena.tecnico}</span>
+            <div key={idx} className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden hover:border-red-600/30 transition-all shadow-xl">
+              <div className="bg-zinc-900/50 px-6 py-3 border-b border-zinc-800 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <span className="bg-red-700 text-white text-[10px] font-black px-2 py-0.5 rounded">CENA {cena.id}</span>
+                  <span className="text-[10px] text-zinc-500 font-bold tracking-widest uppercase">{cena.tipo}</span>
+                </div>
+                <span className="text-[9px] text-zinc-600 font-mono italic">8 SECONDS | 8K RENDER</span>
               </div>
               
-              <div className="p-6 space-y-5">
-                <div>
-                  <label className="text-zinc-600 text-[9px] uppercase font-black block mb-1">Visual Prompt (Gerador de Vídeo)</label>
-                  <p className="text-sm text-zinc-300 leading-relaxed italic">"{cena.visualPrompt}"</p>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-zinc-600 text-[9px] uppercase font-black flex justify-between">
+                    <span>Visual Prompt (IA Video)</span>
+                    <span className="text-red-900">EDITÁVEL</span>
+                  </label>
+                  <textarea 
+                    value={cena.visualPrompt}
+                    onChange={(e) => atualizarCenaManual(idx, 'visualPrompt', e.target.value)}
+                    className="w-full bg-black/50 p-3 text-xs text-zinc-300 border border-zinc-900 rounded-xl focus:border-red-900 outline-none h-24 resize-none leading-relaxed italic"
+                  />
                 </div>
 
-                <div className="bg-red-950/10 p-4 rounded-lg border-l-2 border-red-600">
-                  <label className="text-red-900 text-[9px] uppercase font-black block mb-1">Roteiro de Voz (ElevenLabs)</label>
-                  <p className="text-sm text-zinc-200 font-medium">"{cena.audioScript}"</p>
+                <div className="space-y-2">
+                  <label className="text-red-900 text-[9px] uppercase font-black flex justify-between">
+                    <span>Script de Voz (ElevenLabs)</span>
+                    <span>EDITÁVEL</span>
+                  </label>
+                  <textarea 
+                    value={cena.audioScript}
+                    onChange={(e) => atualizarCenaManual(idx, 'audioScript', e.target.value)}
+                    className="w-full bg-red-950/5 p-3 text-xs text-zinc-200 border border-red-900/10 rounded-xl focus:border-red-700 outline-none h-24 resize-none font-medium"
+                  />
                 </div>
+              </div>
 
+              <div className="px-6 pb-6">
                 <button 
                   onClick={() => {
-                    navigator.clipboard.writeText(`PROMPT: ${cena.visualPrompt}\n\nFALA: ${cena.audioScript}`);
-                    alert(`Cena ${cena.id} copiada para o clipboard!`);
+                    navigator.clipboard.writeText(`PROMPT: ${cena.visualPrompt}\n\nAUDIO: ${cena.audioScript}`);
+                    alert(`Pack da Cena ${cena.id} copiado com sucesso!`);
                   }}
-                  className="w-full bg-zinc-800 hover:bg-white hover:text-black text-zinc-400 hover:text-black py-2 rounded-lg text-[10px] font-black uppercase transition-all"
+                  className="w-full bg-zinc-900 hover:bg-red-700 text-zinc-500 hover:text-white py-3 rounded-xl text-[10px] font-black uppercase transition-all border border-zinc-800 hover:border-red-600 shadow-md"
                 >
-                  Copiar Pack de Dados da Cena
+                  Copiar Pack Finalizado
                 </button>
               </div>
             </div>
           ))
         ) : (
-          <div className="text-center py-20 border-2 border-dashed border-zinc-900 rounded-3xl">
-            <p className="text-zinc-700 text-xs uppercase font-bold tracking-[0.3em]">Aguardando comando do diretor...</p>
+          <div className="text-center py-24 border-2 border-dashed border-zinc-900 rounded-[40px] bg-zinc-900/10">
+            <FilmIcon className="w-12 h-12 text-zinc-800 mx-auto mb-4 opacity-20" />
+            <p className="text-zinc-700 text-xs uppercase font-black tracking-[0.4em]">Aguardando Direção Técnica</p>
           </div>
         )}
       </div>
