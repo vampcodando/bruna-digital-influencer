@@ -207,3 +207,6 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
     </div>
   );
 };
+
+// No final do arquivo App.tsx
+export default App;
