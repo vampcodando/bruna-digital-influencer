@@ -1,135 +1,209 @@
 // @ts-nocheck
-import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
-import PostCreator from './components/PostCreator';
-import ImageEditor from './components/ImageEditor';
-import ImageGenerator from './components/ImageGenerator';
-import SceneCollage from './components/SceneCollage';
-import VideoGenerator from './components/VideoGenerator';
-import { DiretorIA } from './components/DiretorIA'; 
-import TabButton from './components/TabButton';
-import Login from './components/Login';
-import { SparklesIcon, PencilSquareIcon, PhotoIcon, SquaresPlusIcon, FilmIcon } from './components/Icons';
-import { auth } from './firebase';
-import * as firebaseAuth from 'firebase/auth';
+import React, { useState } from 'react';
+import { SparklesIcon, FilmIcon, PencilSquareIcon, SquaresPlusIcon } from './Icons';
 
-// 1. Definição do Enum Local
-enum Tab {
-  PostCreator = 'PostCreator',
-  ImageEditor = 'ImageEditor',
-  ImageGenerator = 'ImageGenerator',
-  SceneCollage = 'SceneCollage',
-  VideoGenerator = 'VideoGenerator',
-  DiretorIA = 'DiretorIA', 
+interface DiretorIAProps {
+  scriptsSalvos: any[];
+  setScriptsSalvos: (scripts: any[]) => void;
 }
 
-const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<Tab>(Tab.PostCreator);
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [scriptsPersistentes, setScriptsPersistentes] = useState<any[]>([]);
+export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsSalvos }) => {
+  const [produto, setProduto] = useState("");
+  const [numCenas, setNumCenas] = useState(3);
+  const [iluminacao, setIluminacao] = useState("Professional Studio Softbox");
+  const [enquadramento, setEnquadramento] = useState("Medium Shot");
+  const [lente, setLente] = useState("85mm (Portrait/Bokeh)");
+  const [movimento, setMovimento] = useState("Static");
+  const [expressao, setExpressao] = useState("Smiling/Persuasive");
 
-  useEffect(() => {
-    const unsubscribe = firebaseAuth.onAuthStateChanged(auth, (currentUser: any) => {
-      setUser(currentUser);
-      setLoading(false);
+  const gerarDirecaoTecnica = () => {
+    // Regra de Ouro: Consistência da Bruna e Micro-texturas
+    const promptBaseBruna = "[CHARACTER CLONE: BRUNA] Brazilian influencer, ultra-realistic 8k, skin micro-texture, perfect teeth, detailed eyes.";
+    
+    const novasCenas = Array.from({ length: numCenas }, (_, i) => {
+      const isFirst = i === 0;
+      const isLast = i === numCenas - 1;
+      
+      let camCena = enquadramento;
+      let falaCena = "";
+
+      if (isFirst) {
+        camCena = "Extreme Close-up";
+        falaCena = `Gente, olhem só a qualidade desse ${produto}! É surreal.`;
+      } else if (isLast) {
+        camCena = "Wide Shot";
+        falaCena = `Não perde tempo, o link do ${produto} está aqui embaixo com desconto!`;
+      } else {
+        falaCena = `O acabamento e os detalhes desse ${produto} mostram que é premium de verdade.`;
+      }
+
+      return {
+        id: i + 1,
+        visualPrompt: `${promptBaseBruna} Camera: ${camCena}, Lens: ${lente}. Action: ${movimento}, Expression: ${expressao}. Environment: ${produto}. Style: ${iluminacao}, TikTok Shop aesthetic.`,
+        audioScript: falaCena,
+        tipo: isFirst ? "HOOK" : isLast ? "CTA" : "BODY"
+      };
     });
-    return () => unsubscribe();
-  }, []);
 
-  const handleSignOut = () => firebaseAuth.signOut(auth);
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#111111] text-white">Carregando...</div>;
-  if (!user) return <Login />;
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case Tab.PostCreator: return <PostCreator />;
-      case Tab.ImageEditor: return <ImageEditor />;
-      case Tab.ImageGenerator: return <ImageGenerator />;
-      case Tab.SceneCollage: return <SceneCollage />;
-      case Tab.VideoGenerator: return <VideoGenerator />;
-      case Tab.DiretorIA: 
-        return <DiretorIA scriptsSalvos={scriptsPersistentes} setScriptsSalvos={setScriptsPersistentes} />;
-      default: return <PostCreator />;
-    }
+    setScriptsSalvos(novasCenas);
   };
 
-  const getTabTitle = () => {
-    switch (activeTab) {
-      case Tab.PostCreator: return 'AI Post Generator Studio';
-      case Tab.ImageEditor: return 'AI Image Editor';
-      case Tab.ImageGenerator: return 'AI Image Generator';
-      case Tab.SceneCollage: return 'Compositor de Cena Épica';
-      case Tab.VideoGenerator: return 'Gerador de Vídeo Ultra Realista';
-      case Tab.DiretorIA: return 'Diretor de IA: Roteiros Técnicos';
-      default: return 'AI Post Generator Studio';
-    }
+  const atualizarCenaManual = (index: number, campo: string, valor: string) => {
+    const novosScripts = [...scriptsSalvos];
+    novosScripts[index][campo] = valor;
+    setScriptsSalvos(novosScripts);
   };
 
   return (
-    <div className="min-h-screen bg-[#111111] text-white font-sans overflow-x-hidden">
-      <div 
-        className="fixed inset-0 w-full h-full bg-cover bg-center z-0"
-        style={{ backgroundImage: "url('https://images.unsplash.com/photo-1579952363873-27f3bade9745?q=80&w=2070&auto=format&fit=crop')" }}
-      >
-        <div className="absolute inset-0 w-full h-full bg-black/80 backdrop-blur-md"></div>
-      </div>
-      
-      <div className="relative z-10 min-h-screen flex flex-col items-center p-4 sm:p-6 md:p-8">
-        <Header />
-        <button onClick={handleSignOut} className="absolute top-4 right-4 text-sm text-gray-400 hover:text-white">Sair</button>
+    <div className="flex flex-col gap-6 w-full text-left">
+      <div className="bg-zinc-900/95 p-6 rounded-3xl border border-red-900/40 shadow-2xl">
+        <div className="flex justify-between items-center mb-8 border-b border-red-900/20 pb-4">
+          <h2 className="text-white font-black tracking-tighter text-2xl uppercase flex items-center gap-3">
+            <FilmIcon className="text-red-600 w-8 h-8" /> Diretor de IA Pro
+          </h2>
+          <div className="flex gap-2">
+            <span className="text-[10px] bg-red-900/20 text-red-500 px-3 py-1 rounded-full font-bold border border-red-900/30">PROJETO BRUNA</span>
+          </div>
+        </div>
         
-        <main className="w-full max-w-7xl mx-auto mt-8 flex-grow">
-          <div className="mb-6 flex flex-wrap justify-center items-center bg-black/40 backdrop-blur-sm border border-gray-800/60 rounded-xl p-2 max-w-4xl mx-auto gap-2">
-            <TabButton 
-              label="Posts"
-              isActive={activeTab === Tab.PostCreator}
-              onClick={() => setActiveTab(Tab.PostCreator)}
-              icon={<SparklesIcon className="w-4 h-4" />}
-            />
-            <TabButton 
-              label="Editar"
-              isActive={activeTab === Tab.ImageEditor}
-              onClick={() => setActiveTab(Tab.ImageEditor)}
-              icon={<PencilSquareIcon className="w-4 h-4" />}
-            />
-            <TabButton 
-              label="Gerar"
-              isActive={activeTab === Tab.ImageGenerator}
-              onClick={() => setActiveTab(Tab.ImageGenerator)}
-              icon={<PhotoIcon className="w-4 h-4" />}
-            />
-            <TabButton 
-              label="Compor"
-              isActive={activeTab === Tab.SceneCollage}
-              onClick={() => setActiveTab(Tab.SceneCollage)}
-              icon={<SquaresPlusIcon className="w-4 h-4" />}
-            />
-            <TabButton 
-              label="Diretor IA"
-              isActive={activeTab === Tab.DiretorIA}
-              onClick={() => setActiveTab(Tab.DiretorIA)}
-              icon={<FilmIcon className="w-4 h-4" />} 
-            />
-            <TabButton 
-              label="Vídeo"
-              isActive={activeTab === Tab.VideoGenerator}
-              onClick={() => setActiveTab(Tab.VideoGenerator)}
-              icon={<FilmIcon className="w-4 h-4" />}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 space-y-4">
+            <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
+              <PencilSquareIcon className="w-3 h-3"/> Descrição do Produto
+            </label>
+            <textarea 
+              className="w-full bg-black p-4 text-white border border-zinc-800 rounded-2xl focus:border-red-600 outline-none transition-all h-[245px] resize-none text-sm leading-relaxed shadow-inner"
+              placeholder="Ex: Jogo de lençol de cetim vermelho premium..."
+              value={produto}
+              onChange={(e) => setProduto(e.target.value)}
             />
           </div>
 
-          <div className="bg-black/50 border border-gray-800/70 rounded-2xl shadow-2xl shadow-red-500/20 backdrop-blur-xl p-6 sm:p-8">
-            <h2 className="text-xl sm:text-2xl font-black text-center mb-8 tracking-widest uppercase border-b border-red-500/20 pb-4 inline-block w-full">
-              {getTabTitle()}
-            </h2>
-            {renderContent()}
+          <div className="space-y-4 bg-black/40 p-5 rounded-2xl border border-zinc-800">
+             <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
+               <SquaresPlusIcon className="w-3 h-3"/> Configuração de Câmera
+             </label>
+             <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <p className="text-[9px] text-zinc-600 uppercase mb-1 font-bold">Enquadramento</p>
+                  <select value={enquadramento} onChange={(e)=>setEnquadramento(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 p-2 rounded-lg text-xs text-white outline-none focus:border-red-600">
+                    <option>Extreme Close-up</option>
+                    <option>Close-up</option>
+                    <option>Medium Shot</option>
+                    <option>Wide Shot</option>
+                  </select>
+                </div>
+                <div>
+                  <p className="text-[9px] text-zinc-600 uppercase mb-1 font-bold">Lente Cinematográfica</p>
+                  <select value={lente} onChange={(e)=>setLente(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 p-2 rounded-lg text-xs text-white outline-none focus:border-red-600">
+                    <option>85mm (Portrait/Bokeh)</option>
+                    <option>35mm (Standard)</option>
+                    <option>24mm (Wide Angle)</option>
+                    <option>Macro Lens</option>
+                  </select>
+                </div>
+                <div>
+                  <p className="text-[9px] text-zinc-600 uppercase mb-1 font-bold">Movimento de Cena</p>
+                  <select value={movimento} onChange={(e)=>setMovimento(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 p-2 rounded-lg text-xs text-white outline-none focus:border-red-600">
+                    <option>Static</option>
+                    <option>Slow Zoom In</option>
+                    <option>Pan Left to Right</option>
+                    <option>Handheld Shake</option>
+                  </select>
+                </div>
+             </div>
           </div>
-        </main>
+
+          <div className="space-y-4 bg-black/40 p-5 rounded-2xl border border-zinc-800">
+             <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
+               <SparklesIcon className="w-3 h-3"/> Direção da Bruna
+             </label>
+             <div className="space-y-4">
+                <div>
+                  <p className="text-[9px] text-zinc-600 uppercase mb-1 font-bold">Expressão Facial</p>
+                  <select value={expressao} onChange={(e)=>setExpressao(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 p-2 rounded-lg text-xs text-white outline-none focus:border-red-600">
+                    <option>Smiling/Persuasive</option>
+                    <option>Surprised/Energetic</option>
+                    <option>Serious/Professional</option>
+                    <option>Relaxed/Natural</option>
+                  </select>
+                </div>
+                <div className="flex items-center justify-between bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+                  <span className="text-zinc-400 text-[10px] font-bold uppercase">Cenas</span>
+                  <div className="flex items-center gap-4">
+                    <button onClick={() => setNumCenas(Math.max(1, numCenas - 1))} className="text-red-500 font-black">-</button>
+                    <span className="text-white font-mono">{numCenas}</span>
+                    <button onClick={() => setNumCenas(numCenas + 1)} className="text-red-500 font-black">+</button>
+                  </div>
+                </div>
+                <button 
+                  onClick={gerarDirecaoTecnica} 
+                  className="w-full bg-red-700 hover:bg-red-600 text-white font-black py-4 rounded-xl uppercase tracking-widest transition-all shadow-lg shadow-red-900/40 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <SparklesIcon className="w-5 h-5"/> Gerar Roteiro Pro
+                </button>
+             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6">
+        {scriptsSalvos && scriptsSalvos.length > 0 ? (
+          scriptsSalvos.map((cena: any, idx: number) => (
+            <div key={idx} className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden hover:border-red-600/30 transition-all shadow-xl">
+              <div className="bg-zinc-900/50 px-6 py-3 border-b border-zinc-800 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <span className="bg-red-700 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase">CENA {cena.id}</span>
+                  <span className="text-[10px] text-zinc-500 font-bold tracking-widest uppercase">{cena.tipo}</span>
+                </div>
+                <span className="text-[9px] text-zinc-600 font-mono italic">8 SECONDS | 8K RENDER</span>
+              </div>
+              
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-zinc-600 text-[9px] uppercase font-black flex justify-between px-1">
+                    <span>Visual Prompt (IA Video)</span>
+                    <span className="text-red-900 italic">Editável</span>
+                  </label>
+                  <textarea 
+                    value={cena.visualPrompt}
+                    onChange={(e) => atualizarCenaManual(idx, 'visualPrompt', e.target.value)}
+                    className="w-full bg-black/50 p-4 text-xs text-zinc-300 border border-zinc-900 rounded-xl focus:border-red-900 outline-none h-28 resize-none leading-relaxed italic shadow-inner"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-red-900 text-[9px] uppercase font-black flex justify-between px-1">
+                    <span>Script de Voz (ElevenLabs)</span>
+                    <span className="italic">Editável</span>
+                  </label>
+                  <textarea 
+                    value={cena.audioScript}
+                    onChange={(e) => atualizarCenaManual(idx, 'audioScript', e.target.value)}
+                    className="w-full bg-red-950/5 p-4 text-xs text-zinc-200 border border-red-900/10 rounded-xl focus:border-red-700 outline-none h-28 resize-none font-medium shadow-inner"
+                  />
+                </div>
+              </div>
+
+              <div className="px-6 pb-6">
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(`PROMPT: ${cena.visualPrompt}\n\nAUDIO: ${cena.audioScript}`);
+                    alert(`Cena ${cena.id} copiada!`);
+                  }}
+                  className="w-full bg-zinc-900 hover:bg-white hover:text-black text-zinc-500 py-3 rounded-xl text-[10px] font-black uppercase transition-all border border-zinc-800 shadow-md"
+                >
+                  Copiar Pack da Cena {cena.id}
+                </button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-24 border-2 border-dashed border-zinc-900 rounded-[40px] bg-zinc-900/10">
+            <FilmIcon className="w-12 h-12 text-zinc-800 mx-auto mb-4 opacity-20" />
+            <p className="text-zinc-700 text-xs uppercase font-black tracking-[0.4em]">Aguardando Direção Técnica</p>
+          </div>
+        )}
       </div>
     </div>
   );
 };
-
-export default App;
