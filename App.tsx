@@ -5,14 +5,22 @@ import ImageEditor from './components/ImageEditor';
 import ImageGenerator from './components/ImageGenerator';
 import SceneCollage from './components/SceneCollage';
 import VideoGenerator from './components/VideoGenerator';
+import DiretorIA from './components/DiretorIA'; // Novo componente
 import TabButton from './components/TabButton';
 import Login from './components/Login';
 import { Tab } from './types';
-import { SparklesIcon, PencilSquareIcon, PhotoIcon, SquaresPlusIcon, FilmIcon } from './components/Icons';
+import { 
+  SparklesIcon, 
+  PencilSquareIcon, 
+  PhotoIcon, 
+  SquaresPlusIcon, 
+  FilmIcon,
+  VideoCameraIcon // Ícone para o Diretor IA
+} from './components/Icons';
 import { auth } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
-// 1. Importação do plugin para o Capacitor 8 [cite: 71, 72]
+// 1. Importação do plugin para o Capacitor 8
 import { SocialLogin } from '@capgo/capacitor-social-login';
 
 const App: React.FC = () => {
@@ -20,11 +28,13 @@ const App: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // ESTADO PERSISTENTE: Garante que os scripts não sumam ao trocar de aba
+  const [scriptsPersistentes, setScriptsPersistentes] = useState<string[]>([]);
+
   useEffect(() => {
-    // 2. Inicialização crucial para Android [cite: 91, 98]
+    // 2. Inicialização crucial para Android
     SocialLogin.initialize({
       google: {
-        // Seu ID do Cliente Web confirmado nas imagens
         webClientId: '176660514948-egf89uuod3rfr3etc0onv68rmbtf82gm.apps.googleusercontent.com',
       }
     });
@@ -46,6 +56,14 @@ const App: React.FC = () => {
       case Tab.ImageGenerator: return <ImageGenerator />;
       case Tab.SceneCollage: return <SceneCollage />;
       case Tab.VideoGenerator: return <VideoGenerator />;
+      // Passando os scripts salvos para o componente DiretorIA
+      case Tab.DiretorIA: 
+        return (
+          <DiretorIA 
+            scriptsSalvos={scriptsPersistentes} 
+            setScriptsSalvos={setScriptsPersistentes} 
+          />
+        );
       default: return <PostCreator />;
     }
   };
@@ -57,6 +75,7 @@ const App: React.FC = () => {
       case Tab.ImageGenerator: return 'AI Image Generator';
       case Tab.SceneCollage: return 'Compositor de Cena Épica';
       case Tab.VideoGenerator: return 'Gerador de Vídeo Ultra Realista';
+      case Tab.DiretorIA: return 'Diretor de IA: Roteiros Técnicos';
       default: return 'AI Post Generator Studio';
     }
   };
@@ -75,7 +94,8 @@ const App: React.FC = () => {
         <button onClick={() => signOut(auth)} className="absolute top-4 right-4 text-sm text-gray-400 hover:text-white">Sair</button>
         
         <main className="w-full max-w-7xl mx-auto mt-8 flex-grow">
-          <div className="mb-6 flex flex-wrap justify-center items-center bg-black/40 backdrop-blur-sm border border-gray-800/60 rounded-xl p-2 max-w-3xl mx-auto gap-2">
+          {/* Menu de Abas Atualizado */}
+          <div className="mb-6 flex flex-wrap justify-center items-center bg-black/40 backdrop-blur-sm border border-gray-800/60 rounded-xl p-2 max-w-4xl mx-auto gap-2">
             <TabButton 
               label="Posts"
               isActive={activeTab === Tab.PostCreator}
@@ -101,6 +121,12 @@ const App: React.FC = () => {
               icon={<SquaresPlusIcon className="w-4 h-4" />}
             />
             <TabButton 
+              label="Diretor IA" // Nova Aba
+              isActive={activeTab === Tab.DiretorIA}
+              onClick={() => setActiveTab(Tab.DiretorIA)}
+              icon={<VideoCameraIcon className="w-4 h-4" />}
+            />
+            <TabButton 
               label="Vídeo"
               isActive={activeTab === Tab.VideoGenerator}
               onClick={() => setActiveTab(Tab.VideoGenerator)}
@@ -109,7 +135,9 @@ const App: React.FC = () => {
           </div>
 
           <div className="bg-black/50 border border-gray-800/70 rounded-2xl shadow-2xl shadow-red-500/20 backdrop-blur-xl p-6 sm:p-8">
-            <h2 className="text-xl sm:text-2xl font-black text-center mb-8 tracking-widest uppercase border-b border-red-500/20 pb-4 inline-block w-full">{getTabTitle()}</h2>
+            <h2 className="text-xl sm:text-2xl font-black text-center mb-8 tracking-widest uppercase border-b border-red-500/20 pb-4 inline-block w-full">
+              {getTabTitle()}
+            </h2>
             {renderContent()}
           </div>
         </main>
