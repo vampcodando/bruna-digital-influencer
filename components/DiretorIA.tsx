@@ -16,11 +16,37 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
   const [lente, setLente] = useState("85mm (Portrait/Bokeh)");
   const [movimento, setMovimento] = useState("Static");
   const [expressao, setExpressao] = useState("Smiling/Persuasive");
+  
+  // NOVO: Estado para o Tom da Campanha (Sincronia Voz + Expressão)
+  const [tomCampanha, setTomCampanha] = useState("Lifestyle");
 
   const gerarDirecaoTecnica = () => {
-    // Regra de Ouro: Consistência da Bruna e Micro-texturas
+    // Regra de Ouro: Consistência da Bruna
     const promptBaseBruna = "[CHARACTER CLONE: BRUNA] Brazilian influencer, ultra-realistic 8k, skin micro-texture, perfect teeth, detailed eyes.";
     
+    // Motor de Sincronia (ElevenLabs + Prompt Visual)
+    let vozDiretiva = "";
+    let acaoContextual = "";
+
+    switch (tomCampanha) {
+      case "HardSell":
+        vozDiretiva = "[ElevenLabs: Vibe Empolgada, speed: 1.15, stability: 0.3]";
+        acaoContextual = "fast hand gestures, highly energetic body language, pointing at product";
+        break;
+      case "SoftSell":
+        vozDiretiva = "[ElevenLabs: Vibe Empática, speed: 0.90, stability: 0.8]";
+        acaoContextual = "relaxed posture, gentle and slow movements, warm inviting look";
+        break;
+      case "Urgencia":
+        vozDiretiva = "[ElevenLabs: Vibe Urgente, speed: 1.25, stability: 0.4]";
+        acaoContextual = "dynamic movement, pointing emphatically, slight tension, wide eyes";
+        break;
+      default: // Lifestyle
+        vozDiretiva = "[ElevenLabs: Vibe Conversacional, speed: 1.0, stability: 0.5]";
+        acaoContextual = "casual posture, natural and warm hand gestures, talking to friend vibe";
+        break;
+    }
+
     const novasCenas = Array.from({ length: numCenas }, (_, i) => {
       const isFirst = i === 0;
       const isLast = i === numCenas - 1;
@@ -28,20 +54,21 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
       let camCena = enquadramento;
       let falaCena = "";
 
-      // Lógica de Diretor: Hook -> Body -> CTA
+      // Lógica de Diretor: Hook -> Body -> CTA adaptado com as tags de voz
       if (isFirst) {
         camCena = "Extreme Close-up";
-        falaCena = `Gente, olhem só a qualidade desse ${produto}! É surreal.`;
+        falaCena = `${vozDiretiva} Gente, olhem só a qualidade desse ${produto || "produto"}! É surreal.`;
       } else if (isLast) {
         camCena = "Wide Shot";
-        falaCena = `Não perde tempo, o link do ${produto} está aqui embaixo com desconto!`;
+        falaCena = `${vozDiretiva} Não perde tempo, o link do ${produto || "produto"} está aqui embaixo!`;
       } else {
-        falaCena = `O acabamento e os detalhes desse ${produto} mostram que é premium de verdade.`;
+        falaCena = `${vozDiretiva} O acabamento e os detalhes desse ${produto || "produto"} mostram que é premium de verdade.`;
       }
 
       return {
         id: i + 1,
-        visualPrompt: `${promptBaseBruna} Camera: ${camCena}, Lens: ${lente}. Action: ${movimento}, Expression: ${expressao}. Environment: ${produto}. Style: ${iluminacao}, TikTok Shop aesthetic.`,
+        // Combinando as ações dinâmicas da voz com o prompt visual base
+        visualPrompt: `${promptBaseBruna} Camera: ${camCena}, Lens: ${lente}. Action: ${movimento}, ${acaoContextual}. Expression: ${expressao}. Environment: ${produto || "studio"}. Style: ${iluminacao}, TikTok Shop aesthetic.`,
         audioScript: falaCena,
         tipo: isFirst ? "HOOK" : isLast ? "CTA" : "BODY"
       };
@@ -67,7 +94,7 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
           </h2>
           <div className="flex gap-2">
             <span className="text-[10px] bg-red-900/20 text-red-500 px-3 py-1 rounded-full font-bold border border-red-900/30">SC INTERNACIONAL PROJECT</span>
-            <span className="text-[10px] bg-zinc-800 text-zinc-400 px-3 py-1 rounded-full font-bold">V.2.0</span>
+            <span className="text-[10px] bg-zinc-800 text-zinc-400 px-3 py-1 rounded-full font-bold">V.3.0 AUDIO SYNC</span>
           </div>
         </div>
         
@@ -78,7 +105,7 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
               <PencilSquareIcon className="w-3 h-3"/> Descrição do Produto
             </label>
             <textarea 
-              className="w-full bg-black p-4 text-white border border-zinc-800 rounded-2xl focus:border-red-600 outline-none transition-all h-[245px] resize-none text-sm leading-relaxed"
+              className="w-full bg-black p-4 text-white border border-zinc-800 rounded-2xl focus:border-red-600 outline-none transition-all h-[310px] resize-none text-sm leading-relaxed"
               placeholder="Descreva o produto ou a ação principal..."
               value={produto}
               onChange={(e) => setProduto(e.target.value)}
@@ -127,12 +154,26 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
           {/* COLUNA 3: PERSONA & GERAÇÃO */}
           <div className="space-y-4 bg-black/40 p-5 rounded-2xl border border-zinc-800">
              <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
-               <SparklesIcon className="w-3 h-3"/> Direção da Bruna
+               <SparklesIcon className="w-3 h-3"/> Direção da Bruna & Voz
              </label>
 
              <div className="space-y-4">
+                {/* NOVO SELETOR DE TOM DE VOZ */}
                 <div>
-                  <p className="text-[9px] text-zinc-600 uppercase mb-1 font-bold">Expressão Facial</p>
+                  <p className="text-[9px] text-red-500 uppercase mb-1 font-black flex justify-between">
+                    <span>Tom da Campanha (Voz)</span>
+                    <span className="text-[8px] bg-red-950/50 px-1 rounded">ElevenLabs Sync</span>
+                  </p>
+                  <select value={tomCampanha} onChange={(e)=>setTomCampanha(e.target.value)} className="w-full bg-red-950/20 border border-red-900/40 p-2 rounded-lg text-xs text-white outline-none focus:border-red-600">
+                    <option value="Lifestyle">Review Sincero (Lifestyle)</option>
+                    <option value="HardSell">Vendedora Agressiva (Hard Sell)</option>
+                    <option value="SoftSell">Amiga Conselheira (Soft Sell)</option>
+                    <option value="Urgencia">Promoção / Escassez (Urgência)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <p className="text-[9px] text-zinc-600 uppercase mb-1 font-bold">Expressão Facial Base</p>
                   <select value={expressao} onChange={(e)=>setExpressao(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 p-2 rounded-lg text-xs text-white outline-none focus:border-red-600">
                     <option>Smiling/Persuasive</option>
                     <option>Surprised/Energetic</option>
@@ -152,7 +193,7 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
 
                 <button 
                   onClick={gerarDirecaoTecnica} 
-                  className="w-full bg-red-700 hover:bg-red-600 text-white font-black py-4 rounded-xl uppercase tracking-widest transition-all shadow-lg shadow-red-900/20 active:scale-95 flex items-center justify-center gap-2"
+                  className="w-full bg-red-700 hover:bg-red-600 text-white font-black py-4 rounded-xl uppercase tracking-widest transition-all shadow-lg shadow-red-900/20 active:scale-95 flex items-center justify-center gap-2 mt-2"
                 >
                   <SparklesIcon className="w-5 h-5"/> Gerar Roteiro Pro
                 </button>
@@ -183,7 +224,7 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
                   <textarea 
                     value={cena.visualPrompt}
                     onChange={(e) => atualizarCenaManual(idx, 'visualPrompt', e.target.value)}
-                    className="w-full bg-black/50 p-3 text-xs text-zinc-300 border border-zinc-900 rounded-xl focus:border-red-900 outline-none h-24 resize-none leading-relaxed italic"
+                    className="w-full bg-black/50 p-3 text-xs text-zinc-300 border border-zinc-900 rounded-xl focus:border-red-900 outline-none h-32 resize-none leading-relaxed italic"
                   />
                 </div>
 
@@ -195,7 +236,7 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
                   <textarea 
                     value={cena.audioScript}
                     onChange={(e) => atualizarCenaManual(idx, 'audioScript', e.target.value)}
-                    className="w-full bg-red-950/5 p-3 text-xs text-zinc-200 border border-red-900/10 rounded-xl focus:border-red-700 outline-none h-24 resize-none font-medium"
+                    className="w-full bg-red-950/5 p-3 text-xs text-zinc-200 border border-red-900/10 rounded-xl focus:border-red-700 outline-none h-32 resize-none font-medium"
                   />
                 </div>
               </div>
