@@ -1,28 +1,33 @@
 // @ts-nocheck
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import FileUpload from './FileUpload';
 import { ImageFile, AspectRatio } from '../types';
 import { createBackgroundImagePrompt, generateImage } from '../services/geminiService';
 import { SparklesIcon } from './Icons';
 
+// Componente de Botão Isolado e Seguro
 const AspectRatioButton: React.FC<{
-  value: AspectRatio;
-  label: string;
-  description: string;
-  current: AspectRatio;
-  onClick: (value: AspectRatio) => void;
-}> = ({ value, label, description, current, onClick }) => (
-  <button
-    onClick={() => onClick(value)}
-    className={`p-3 rounded-xl border text-left transition-all w-full backdrop-blur-sm
-      ${current === value 
-        ? 'bg-red-600/40 border-red-500/80 ring-2 ring-red-400' 
-        : 'bg-red-900/20 border-red-500/30 hover:bg-red-900/40'\n      }`}
-  >
-    <div className="font-bold text-md text-white">{label}</div>
-    <div className="text-xs text-gray-300">{description}</div>
-  </button>
-);
+    value: AspectRatio;
+    label: string;
+    description: string;
+    current: AspectRatio;
+    onClick: (value: AspectRatio) => void;
+}> = ({ value, label, description, current, onClick }) => {
+    const isActive = current === value;
+    const baseClasses = "p-3 rounded-xl border text-left transition-all w-full backdrop-blur-sm";
+    const activeClasses = "bg-red-600/40 border-red-500/80 ring-2 ring-red-400";
+    const inactiveClasses = "bg-red-900/20 border-red-500/30 hover:bg-red-900/40";
+
+    return (
+        <button
+            onClick={() => onClick(value)}
+            className={baseClasses + " " + (isActive ? activeClasses : inactiveClasses)}
+        >
+            <div className="font-bold text-md text-white">{label}</div>
+            <div className="text-xs text-gray-300">{description}</div>
+        </button>
+    );
+};
 
 const PostCreator: React.FC = () => {
     const [referenceImage, setReferenceImage] = useState<ImageFile | null>(null);
@@ -36,23 +41,24 @@ const PostCreator: React.FC = () => {
     const [generatedImage, setGeneratedImage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // Função para fundir Texto + Imagem da IA (Correção QA)
     const renderFinalPost = (bgUrl: string) => {
         if (typeof window === 'undefined') return;
 
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
         const img = new Image();
-        
         img.crossOrigin = "anonymous";
+        
         img.onload = () => {
             canvas.width = img.width;
             canvas.height = img.height;
 
-            // 1. Desenha o fundo gerado pela IA
+            // 1. Fundo
             ctx.drawImage(img, 0, 0);
 
-            // 2. Overlay de degradê para legibilidade
+            // 2. Degradê Escuro (Overlay)
             const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
             grad.addColorStop(0, 'rgba(0,0,0,0.4)');
             grad.addColorStop(0.5, 'transparent');
@@ -60,21 +66,23 @@ const PostCreator: React.FC = () => {
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 3. Renderização do Título
+            // 3. Textos (Usando concatenação segura para evitar TS1160)
             ctx.textAlign = 'center';
             ctx.fillStyle = 'white';
-            ctx.font = `bold ${canvas.width * 0.08}px Arial`;
             ctx.shadowColor = 'rgba(0,0,0,0.8)';
             ctx.shadowBlur = 10;
+
+            const titleFontSize = Math.floor(canvas.width * 0.08);
+            ctx.font = "bold " + titleFontSize + "px Arial";
             ctx.fillText(title.toUpperCase(), canvas.width / 2, canvas.height * 0.45);
 
-            // 4. Renderização do Subtítulo
-            ctx.font = `${canvas.width * 0.04}px Arial`;
+            const subtitleFontSize = Math.floor(canvas.width * 0.04);
+            ctx.font = subtitleFontSize + "px Arial";
             ctx.fillStyle = '#e5e7eb';
             ctx.fillText(subtitle, canvas.width / 2, canvas.height * 0.50);
 
-            // 5. Renderização da Info Adicional
-            ctx.font = `${canvas.width * 0.035}px Arial`;
+            const infoFontSize = Math.floor(canvas.width * 0.035);
+            ctx.font = infoFontSize + "px Arial";
             ctx.fillStyle = 'white';
             ctx.fillText(additionalInfo, canvas.width / 2, canvas.height * 0.90);
 
@@ -94,11 +102,11 @@ const PostCreator: React.FC = () => {
         setGeneratedImage(null);
 
         try {
-            const detailedPrompt = await createBackgroundImagePrompt(backgroundDescription, referenceImage ?? undefined);
+            const detailedPrompt = await createBackgroundImagePrompt(backgroundDescription, referenceImage || undefined);
             const baseImage = await generateImage(detailedPrompt, aspectRatio);
             renderFinalPost(baseImage);
-        } catch (e) {
-            setError('Erro ao gerar post.');
+        } catch (e: any) {
+            setError('Erro ao gerar post: ' + e.message);
             setIsLoading(false);
         }
     };
@@ -107,7 +115,7 @@ const PostCreator: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-4">
             <div className="space-y-6 bg-black/40 p-8 rounded-[2.5rem] border border-red-500/20 shadow-2xl">
                 <div className="space-y-4">
-                    <h3 className="text-white font-black uppercase text-xs tracking-widest text-red-500">1. Conceito do Post</h3>
+                    <h3 className="text-white font-black uppercase text-xs tracking-widest text-red-500">1. Formato do Post</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <AspectRatioButton value="9:16" label="Story" description="TikTok/Reels" current={aspectRatio} onClick={setAspectRatio} />
                         <AspectRatioButton value="16:9" label="Widescreen" description="YouTube/Ads" current={aspectRatio} onClick={setAspectRatio} />
@@ -123,7 +131,7 @@ const PostCreator: React.FC = () => {
 
                 <div className="space-y-4">
                     <h3 className="text-white font-black uppercase text-xs tracking-widest text-red-500">3. Fundo da IA</h3>
-                    <textarea value={backgroundDescription} onChange={(e) => setBackgroundDescription(e.target.value)} placeholder="Ex: Interior de um estádio de futebol moderno lotado, gramado impecável, iluminação épica..." className="w-full bg-black/60 border border-zinc-800 p-4 rounded-xl text-white h-24 outline-none focus:border-red-600" />
+                    <textarea value={backgroundDescription} onChange={(e) => setBackgroundDescription(e.target.value)} placeholder="Ex: Interior de um estádio de futebol moderno lotado..." className="w-full bg-black/60 border border-zinc-800 p-4 rounded-xl text-white h-24 outline-none focus:border-red-600" />
                     <FileUpload onFileSelect={setReferenceImage} label="Usar Referência Visual" />
                 </div>
 
@@ -137,7 +145,7 @@ const PostCreator: React.FC = () => {
                 {generatedImage ? (
                     <div className="flex flex-col items-center p-4">
                         <img src={generatedImage} className="max-h-[700px] rounded-2xl shadow-2xl border border-white/10" alt="Post Final" />
-                        <a href={generatedImage} download="post-bruna.png" className="mt-4 px-8 py-3 bg-white text-black font-bold rounded-full text-xs uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Baixar Imagem</a>
+                        <a href={generatedImage} download="post-final.png" className="mt-6 px-8 py-4 bg-white text-black font-black rounded-full text-xs uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-lg">Baixar Imagem Pronta</a>
                     </div>
                 ) : (
                     <div className="text-center opacity-20">
@@ -148,7 +156,7 @@ const PostCreator: React.FC = () => {
                 {isLoading && (
                     <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-50">
                         <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                        <p className="text-white font-black text-[10px] tracking-[0.3em]">IA ESTÁ PINTANDO SEU POST...</p>
+                        <p className="text-white font-black text-[10px] tracking-[0.3em] animate-pulse">CRIANDO POST PROFISSIONAL...</p>
                     </div>
                 )}
             </div>
