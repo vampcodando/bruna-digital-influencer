@@ -7,13 +7,14 @@ import ImageGenerator from './components/ImageGenerator';
 import SceneCollage from './components/SceneCollage';
 import VideoGenerator from './components/VideoGenerator';
 import { DiretorIA } from './components/DiretorIA'; 
+import { FabricaFrutas } from './components/FabricaFrutas'; // NOVO COMPONENTE
 import TabButton from './components/TabButton';
 import Login from './components/Login';
-import { SparklesIcon, PencilSquareIcon, PhotoIcon, SquaresPlusIcon, FilmIcon } from './components/Icons';
+import { SparklesIcon, PencilSquareIcon, PhotoIcon, SquaresPlusIcon, FilmIcon, RocketLaunchIcon } from './components/Icons';
 import { auth } from './firebase';
 import * as firebaseAuth from 'firebase/auth';
 
-// 1. Definição do Enum de Abas
+// 1. Atualização do Enum de Abas
 enum Tab {
   PostCreator = 'PostCreator',
   ImageEditor = 'ImageEditor',
@@ -21,6 +22,7 @@ enum Tab {
   SceneCollage = 'SceneCollage',
   VideoGenerator = 'VideoGenerator',
   DiretorIA = 'DiretorIA', 
+  Novela = 'Novela', // NOVA ABA
 }
 
 const App: React.FC = () => {
@@ -48,10 +50,9 @@ const App: React.FC = () => {
       case Tab.ImageEditor: return <ImageEditor />;
       case Tab.ImageGenerator: return <ImageGenerator />;
       case Tab.SceneCollage: return <SceneCollage />;
-      case Tab.VideoGenerator: 
-        return <VideoGenerator scripts={scriptsPersistentes} />; 
-      case Tab.DiretorIA: 
-        return <DiretorIA scriptsSalvos={scriptsPersistentes} setScriptsSalvos={setScriptsPersistentes} />;
+      case Tab.VideoGenerator: return <VideoGenerator scripts={scriptsPersistentes} />;
+      case Tab.DiretorIA: return <DiretorIA scriptsSalvos={scriptsPersistentes} setScriptsSalvos={setScriptsPersistentes} />;
+      case Tab.Novela: return <FabricaFrutas />; // RENDERIZAÇÃO DA FÁBRICA
       default: return <PostCreator />;
     }
   };
@@ -64,13 +65,13 @@ const App: React.FC = () => {
       case Tab.SceneCollage: return 'Compositor de Cena Épica';
       case Tab.VideoGenerator: return 'Gerador de Vídeo Ultra Realista';
       case Tab.DiretorIA: return 'Diretor de IA: Roteiros Técnicos';
+      case Tab.Novela: return 'Fábrica de Novelas: Casting & Script';
       default: return 'AI Post Generator Studio';
     }
   };
 
   return (
     <div className="min-h-screen bg-[#111111] text-white font-sans overflow-x-hidden">
-      {/* Background com Overlay */}
       <div 
         className="fixed inset-0 w-full h-full bg-cover bg-center z-0"
         style={{ backgroundImage: "url('https://images.unsplash.com/photo-1579952363873-27f3bade9745?q=80&w=2070&auto=format&fit=crop')" }}
@@ -83,17 +84,18 @@ const App: React.FC = () => {
         <button onClick={handleSignOut} className="absolute top-4 right-4 text-[10px] font-black uppercase bg-zinc-900/50 px-4 py-2 rounded-full border border-zinc-800 hover:bg-red-600 transition-all tracking-widest">Desconectar</button>
         
         <main className="w-full max-w-7xl mx-auto mt-8 flex-grow">
-          {/* Menu de Navegação */}
-          <div className="mb-6 flex flex-wrap justify-center items-center bg-black/40 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-2 max-w-4xl mx-auto gap-2">
+          {/* Menu de Navegação Atualizado */}
+          <div className="mb-6 flex flex-wrap justify-center items-center bg-black/40 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-2 max-w-5xl mx-auto gap-2">
             <TabButton label="Posts" isActive={activeTab === Tab.PostCreator} onClick={() => setActiveTab(Tab.PostCreator)} icon={<SparklesIcon className="w-4 h-4" />} />
             <TabButton label="Editar" isActive={activeTab === Tab.ImageEditor} onClick={() => setActiveTab(Tab.ImageEditor)} icon={<PencilSquareIcon className="w-4 h-4" />} />
             <TabButton label="Gerar" isActive={activeTab === Tab.ImageGenerator} onClick={() => setActiveTab(Tab.ImageGenerator)} icon={<PhotoIcon className="w-4 h-4" />} />
             <TabButton label="Compor" isActive={activeTab === Tab.SceneCollage} onClick={() => setActiveTab(Tab.SceneCollage)} icon={<SquaresPlusIcon className="w-4 h-4" />} />
             <TabButton label="Diretor IA" isActive={activeTab === Tab.DiretorIA} onClick={() => setActiveTab(Tab.DiretorIA)} icon={<FilmIcon className="w-4 h-4" />} />
+            {/* NOVO BOTÃO DA NOVELA */}
+            <TabButton label="Novela" isActive={activeTab === Tab.Novela} onClick={() => setActiveTab(Tab.Novela)} icon={<RocketLaunchIcon className="w-4 h-4" />} />
             <TabButton label="Vídeo" isActive={activeTab === Tab.VideoGenerator} onClick={() => setActiveTab(Tab.VideoGenerator)} icon={<FilmIcon className="w-4 h-4" />} />
           </div>
 
-          {/* Container Principal do Conteúdo */}
           <div className="bg-black/60 border border-zinc-800/70 rounded-[2.5rem] shadow-2xl shadow-red-900/10 backdrop-blur-2xl p-6 sm:p-8">
             <h2 className="text-xl sm:text-2xl font-black text-center mb-8 tracking-[0.2em] uppercase border-b border-red-900/20 pb-6 inline-block w-full">
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-500">
@@ -107,5 +109,4 @@ const App: React.FC = () => {
     </div>
   );
 };
-
 export default App;
