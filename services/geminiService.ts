@@ -6,7 +6,7 @@ import { ImageFile, AspectRatio } from '../types';
  * --- CONFIGURAÇÃO DE SEGURANÇA ---
  */
 const getApiKey = (): string => {
-    // @ts-ignore
+    // Prioriza VITE_API_KEY do ambiente Vercel/Vite
     const envKey = (import.meta as any).env?.VITE_API_KEY;
     const hardcodedKey = ''; 
     
@@ -20,10 +20,11 @@ const getAI = () => {
 
 /**
  * --- GERAÇÃO DE TEXTO & ROTEIRO ---
+ * Suporta Diretor IA e Roteirista de Novelas
  */
 export const generateText = async (prompt: string, isPro: boolean = false): Promise<string> => {
     const ai = getAI();
-    // Usa 1.5 Pro para roteiros complexos de novela e Flash para tarefas rápidas
+    // Usa 1.5 Pro para roteiros complexos e Flash para tarefas rápidas
     const modelName = isPro ? 'gemini-1.5-pro' : 'gemini-1.5-flash';
     
     const response = await ai.models.generateContent({
@@ -32,6 +33,7 @@ export const generateText = async (prompt: string, isPro: boolean = false): Prom
     });
 
     let text = response.text || "";
+    // Limpeza para evitar erros de parsing JSON
     text = text.replace(/```json/g, "").replace(/```/g, "").trim();
     return text;
 };
@@ -55,8 +57,29 @@ export const generateNovelaScript = async (ideia: string, personagensDesc: strin
         Retorne apenas o Array JSON puro.
     `;
 
-    const responseText = await generateText(prompt, true); // Usa o Pro para melhor dramaturgia
+    const responseText = await generateText(prompt, true); // Força uso do Gemini Pro
     return JSON.parse(responseText);
+};
+
+/**
+ * --- RESTAURAÇÃO: SUPORTE AO POSTCREATOR ---
+ * Esta função corrige o erro de build TS2305
+ */
+export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
+    const ai = getAI();
+    let promptText = `Crie um prompt detalhado em inglês para geração de imagem de fundo. Tema: "${description}". Estética cinematográfica, 4k, sem textos.`;
+    
+    const parts: any[] = [{ text: promptText }];
+    if (reference) {
+        parts.unshift({ inlineData: { mimeType: reference.mimeType, data: reference.base64 } });
+    }
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-1.5-flash',
+        contents: [{ parts }]
+    });
+
+    return response.text || "";
 };
 
 // --- GERAÇÃO DE IMAGEM (IMAGEN 4.0) ---
@@ -79,33 +102,6 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio): P
     throw new Error("Falha na geração da imagem.");
 };
 
-// --- EDIÇÃO DE IMAGEM (GEMINI 2.5 FLASH) ---
-export const editImage = async (
-    mainImage: ImageFile, 
-    prompt: string, 
-    aspectRatio: AspectRatio, 
-    referenceImage?: ImageFile
-): Promise<string> => {
-    const ai = getAI();
-    const parts: any[] = [{ inlineData: { data: mainImage.base64, mimeType: mainImage.mimeType } }];
-    
-    if (referenceImage) {
-        parts.push({ inlineData: { data: referenceImage.base64, mimeType: referenceImage.mimeType } });
-    }
-    parts.push({ text: prompt });
-
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: { parts },
-        config: { imageConfig: { aspectRatio } } as any,
-    });
-
-    for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-    }
-    throw new Error("Falha ao editar imagem.");
-};
-
 // --- VÍDEO (VEO 3.1 LITE - 8 SEGUNDOS) ---
 export const generateVideo = async (
     image: ImageFile, 
@@ -118,7 +114,7 @@ export const generateVideo = async (
     
     const ai = getAI();
     const currentKey = getApiKey();
-    onProgress("Iniciando geração de vídeo de novela (8s)...");
+    onProgress("Iniciando animação de 8s...");
     
     let operation = await (ai as any).models.generateVideos({
         model: 'veo-3.1-lite-generate-preview', 
@@ -133,7 +129,7 @@ export const generateVideo = async (
     });
 
     while (!operation.done) {
-        onProgress("Animando cena de 8s... aguarde.");
+        onProgress("Processando cena (8s)... aguarde.");
         await new Promise(resolve => setTimeout(resolve, 10000));
         operation = await (ai as any).operations.getVideosOperation({ operation });
     }
@@ -146,28 +142,11 @@ export const generateVideo = async (
         headers: { 'x-goog-api-key': currentKey },
     });
 
-    if (!videoResponse.ok) throw new Error("Erro ao baixar o vídeo gerado.");
-
     const videoBlob = await videoResponse.blob();
     return URL.createObjectURL(videoBlob);
 };
 
-// --- ANÁLISE E COMPOSIÇÃO ---
-export const analyzeImage = async (image: ImageFile): Promise<string> => {
-    const ai = getAI();
-    const contents = {
-        parts: [
-            { inlineData: { mimeType: image.mimeType, data: image.base64 } },
-            { text: "Descreva esta imagem para fins de acessibilidade e contexto." }
-        ]
-    };
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents
-    });
-    return response.text;
-};
-
+// --- COMPOSIÇÃO DE CENA ---
 export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const ai = getAI();
     const parts: any[] = images.map(img => ({
@@ -185,4 +164,19 @@ export const generateSceneFromImages = async (images: ImageFile[], prompt: strin
         if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
     }
     throw new Error("Falha ao gerar cena.");
+};
+
+// --- ANÁLISE DE IMAGEM ---
+export const analyzeImage = async (image: ImageFile): Promise<string> => {
+    const ai = getAI();
+    const contents = {
+        parts: [
+            { inlineData: { mimeType: image.mimeType, data: image.base64 } },
+            { text: "Descreva esta imagem para fins de acessibilidade." }
+        ]
+    };
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image', contents
+    });
+    return response.text;
 };
