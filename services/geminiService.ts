@@ -12,6 +12,10 @@ const getApiKey = (): string => {
     return key.trim();
 };
 
+/**
+ * CORREÇÃO DE INICIALIZAÇÃO:
+ * Passando a chave diretamente na string para evitar o erro de "API Key must be set"
+ */
 const getAI = () => {
     return new GoogleGenAI(getApiKey());
 };
@@ -22,7 +26,7 @@ const getAI = () => {
  */
 export const generateText = async (prompt: string, isPro: boolean = false): Promise<string> => {
     const genAI = getAI();
-    // Usando o modelo que você validou como o correto para a camada de lógica
+    // Usando o modelo validado como o correto para a camada de lógica
     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
     
     const result = await model.generateContent(prompt);
