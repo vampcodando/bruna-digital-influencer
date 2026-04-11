@@ -17,16 +17,13 @@ const getAI = () => {
 };
 
 /**
- * Helper crucial para extrair base64 limpo, 
- * evitando erros de processamento na API do Gemini/Imagen
+ * Helper crucial para extrair base64 limpo
  */
 const getCleanBase64 = (image: ImageFile): string => {
     if (!image) return "";
-    // Se for um preview de FileReader (data:image/png;base64,...), removemos o prefixo
     if (image.preview && image.preview.includes(',')) {
         return image.preview.split(',')[1];
     }
-    // Caso contrário, retorna o base64 puro ou string vazia
     return image.base64 || "";
 };
 
@@ -43,7 +40,6 @@ export const generateText = async (prompt: string): Promise<string> => {
     });
 
     let text = response.text || "";
-    // Limpeza de blocos de código markdown para retornos JSON
     text = text.replace(/```json/g, "").replace(/```/g, "").trim();
     return text;
 };
@@ -144,7 +140,7 @@ export const generateSceneFromImages = async (images: ImageFile[], prompt: strin
     const parts = images.map(img => ({
         inlineData: { data: getCleanBase64(img), mimeType: 'image/png' }
     }));
-    parts.push({ text: `Integre os elementos em uma cena 3D única: ${prompt}` });
+    parts.push({ text: `Integre os elementos em uma cena 3D única, sem textos ou divisões: ${prompt}` });
 
     const response = await ai.models.generateContent({
         model: 'gemini-3.1-flash-lite-preview',
@@ -154,13 +150,11 @@ export const generateSceneFromImages = async (images: ImageFile[], prompt: strin
     const resultPart = response.candidates[0].content.parts.find(p => p.inlineData);
     if (resultPart) return `data:${resultPart.inlineData.mimeType};base64,${resultPart.inlineData.data}`;
     
-    // Fallback caso não retorne imagem direta na composição
     return await generateImage(prompt, aspectRatio);
 };
 
 /**
- * --- EDIÇÃO DE IMAGEM (COMPATÍVEL COM IMAGEEDITOR) ---
- * Suporta os 4 argumentos: Imagem Base, Prompt, Proporção e Imagem de Referência
+ * --- EDIÇÃO DE IMAGEM ---
  */
 export const editImage = async (
     mainImage: ImageFile, 
@@ -188,12 +182,36 @@ export const analyzeImage = async (image: ImageFile): Promise<string> => {
     return response.text;
 };
 
+/**
+ * --- GERADOR DE PROMPT PARA FUNDO (CORREÇÃO DO BUG DE OPÇÕES) ---
+ */
 export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
     const ai = getAI();
-    let promptText = `Crie um prompt em inglês técnico para fundo cinematográfico: "${description}".`;
-    const parts = [{ text: promptText }];
-    if (reference) parts.unshift({ inlineData: { mimeType: 'image/png', data: getCleanBase64(reference) } });
     
-    const response = await ai.models.generateContent({ model: 'gemini-3.1-flash-lite-preview', contents: [{ parts }] });
-    return response.text || "";
+    // SISTEMA DE REGRAS RÍGIDAS: Proíbe "Option 1", "Layouts" e textos
+    let systemInstruction = `Act as a professional Prompt Engineer for Imagen 4.0. 
+    Transform the user description into a SINGLE, cohesive, highly detailed visual-only prompt in English.
+    
+    CRITICAL RULES:
+    1. Output ONLY the descriptive paragraph. 
+    2. DO NOT include "Option 1", "Concept", or list formats.
+    3. NO text, letters, or UI elements in the scene.
+    4. Focus on cinematic lighting, 8k textures, and atmospheric depth.
+    5. The result must be one single continuous scene, not a collage or split screen.
+    
+    User Description: "${description}"`;
+
+    const parts = [{ text: systemInstruction }];
+    if (reference) {
+        parts.unshift({ inlineData: { mimeType: 'image/png', data: getCleanBase64(reference) } });
+    }
+    
+    const response = await ai.models.generateContent({ 
+        model: 'gemini-3.1-flash-lite-preview', 
+        contents: [{ parts }] 
+    });
+
+    let result = response.text || "";
+    // Limpeza final para garantir que nenhum resíduo de "Option" passe para o Imagen
+    return result.replace(/(Option|Choice|Concept|Prompt)\s*#?\d+:?/gi, "").trim();
 };
