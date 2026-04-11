@@ -117,7 +117,7 @@ export const createBackgroundImagePrompt = async (description: string, reference
     let promptText = `Crie um prompt detalhado em inglês para geração de imagem de fundo. Tema: "${description}". Estética cinematográfica, 4k.`;
     const parts: any[] = [{ text: promptText }];
     if (reference) {
-        parts.unshift({ inlineData: { mimeType: reference.mimeType, data: reference.base64 } });
+        parts.unshift({ inlineData: { mimeType: reference.mimeType, data: reference.base64.split(',')[1] || reference.base64 } });
     }
     const response = await ai.models.generateContent({
         model: FRUIT_FACTORY_MODELS.VISION_EDITOR,
@@ -133,9 +133,9 @@ export const editImage = async (
     referenceImage?: ImageFile
 ): Promise<string> => {
     const ai = getAI();
-    const parts: any[] = [{ inlineData: { data: mainImage.base64, mimeType: mainImage.mimeType } }];
+    const parts: any[] = [{ inlineData: { data: mainImage.base64.split(',')[1] || mainImage.base64, mimeType: mainImage.mimeType } }];
     if (referenceImage) {
-        parts.push({ inlineData: { data: referenceImage.base64, mimeType: referenceImage.mimeType } });
+        parts.push({ inlineData: { data: referenceImage.base64.split(',')[1] || referenceImage.base64, mimeType: referenceImage.mimeType } });
     }
     parts.push({ text: prompt });
 
@@ -180,29 +180,32 @@ export const generateVideo = async (
     const ai = getAI();
     onProgress("Iniciando animação de 8s...");
     
-    // CORREÇÃO 400: O Veo 3.1 exige que a imagem seja enviada dentro de 'contents' como inlineData
-    // e os parâmetros de configuração devem seguir o padrão de vídeo.
+    // CORREÇÃO 400 (ABRIL 2026): 
+    // 1. A imagem deve ser enviada no campo 'image' com 'imageBytes' e 'mimeType'.
+    // 2. O base64 NÃO pode conter o prefixo 'data:image/...;base64,'.
+    const cleanBase64 = image.base64.split(',')[1] || image.base64;
+
     let operation = await (ai as any).models.generateVideos({
         model: FRUIT_FACTORY_MODELS.VIDEO_GEN,
-        contents: [{
-            parts: [
-                { text: prompt },
-                { inlineData: { data: image.base64.split(',')[1] || image.base64, mimeType: image.mimeType } }
-            ]
-        }],
-        videoConfig: { 
-            durationSeconds: durationSeconds,
-            aspectRatio: aspectRatio === '16:9' ? 'ASPECT_RATIO_16_9' : 'ASPECT_RATIO_9_16'
+        prompt: prompt,
+        image: {
+            imageBytes: cleanBase64,
+            mimeType: image.mimeType
+        },
+        config: {
+            aspectRatio: aspectRatio, // O Veo 3.1 agora aceita a string direta '9:16' ou '16:9'
+            durationSeconds: durationSeconds
         }
     });
 
     while (!operation.done) {
         await new Promise(resolve => setTimeout(resolve, 10000));
-        operation = await (ai as any).operations.getVideosOperation({ operationName: operation.name });
+        // O polling deve passar o objeto da operação retornado inicialmente
+        operation = await (ai as any).operations.getVideosOperation({ operation });
     }
 
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-    if (!downloadLink) throw new Error("Link de download não gerado.");
+    if (!downloadLink) throw new Error("Vídeo não gerado pelo modelo.");
 
     const videoResponse = await fetch(downloadLink, { headers: { 'x-goog-api-key': getApiKey() } });
     const videoBlob = await videoResponse.blob();
