@@ -1,7 +1,7 @@
 // @ts-nocheck
-import React, { useState } from 'react';
-import { SparklesIcon, FilmIcon, PencilSquareIcon, SquaresPlusIcon } from './Icons';
-import { generateText } from '../services/geminiService'; // IMPORTAÇÃO DA API DO GEMINI
+import React, { useState, useEffect } from 'react';
+import { SparklesIcon, FilmIcon, PencilSquareIcon, SquaresPlusIcon, RocketLaunchIcon } from './Icons';
+import { generateText } from '../services/geminiService';
 
 interface DiretorIAProps {
   scriptsSalvos: any[];
@@ -20,12 +20,11 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
   const [isLoading, setIsLoading] = useState(false);
 
   const gerarDirecaoTecnica = async () => {
+    if (!produto) return;
     setIsLoading(true);
     
-    // Prompt Base Blindado da Bruna (Nunca muda a aparência dela)
     const promptBaseBruna = "[CHARACTER CLONE: BRUNA, 35-year-old woman] Brazilian influencer, ultra-realistic 8k, skin micro-texture, perfect teeth, detailed eyes.";
     
-    // Configurações de Voz ElevenLabs
     let vozDiretiva = "";
     switch (tomCampanha) {
       case "HardSell": vozDiretiva = "[ElevenLabs: Vibe Empolgada, speed: 1.15, stability: 0.3]"; break;
@@ -34,44 +33,39 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
       default: vozDiretiva = "[ElevenLabs: Vibe Conversacional, speed: 1.0, stability: 0.5]"; break;
     }
 
-    // SUPER PROMPT PARA O GEMINI (O "Cérebro" de Copy)
     const superPrompt = `
       Você é um Copywriter Sênior e Diretor de Vídeo criando um roteiro técnico para a influenciadora digital "Bruna".
-      O usuário forneceu a seguinte descrição do produto ou oferta: "${produto}".
-      O tom da campanha é: ${tomCampanha}.
+      O produto: "${produto}".
+      O tom: ${tomCampanha}.
       
-      Sua tarefa é criar um roteiro com EXATAMENTE ${numCenas} cenas.
-      Você deve OBRIGATORIAMENTE seguir esta estrutura lógica de copywriting de vendas, dividindo o texto da descrição do usuário entre as cenas:
-      - CENA 1 (Primeira cena sempre): O "Gancho" (Hook). Uma frase impactante para prender a atenção nos primeiros 3 segundos.
-      - CENAS INTERMEDIÁRIAS: "Desenvolvimento" (Dor/Solução/Benefício). Divida os detalhes técnicos e benefícios de forma natural.
-      - CENA FINAL (Última cena sempre): O "CTA" (Call to Action). A chamada para ação final e clara.
+      Crie um roteiro com EXATAMENTE ${numCenas} cenas.
+      Estrutura:
+      - CENA 1: HOOK (Gancho impactante).
+      - CENAS INTERMEDIÁRIAS: BODY (Benefícios).
+      - CENA FINAL: CTA (Chamada para ação).
 
-      Retorne APENAS um array JSON válido com o seguinte formato, sem nenhum texto extra (como markdown \`\`\`json):
+      Retorne APENAS um array JSON válido:
       [
         {
-          "acao_visual": "Ação física que a Bruna fará nesta cena (em inglês, curto). Ex: holding the product close to the camera",
-          "fala": "A frase que a Bruna vai falar (em português).",
-          "tipo": "HOOK", "BODY" ou "CTA"
+          "acao_visual": "action in english",
+          "fala": "frase em português",
+          "tipo": "HOOK"
         }
       ]
     `;
 
     try {
-      // Chama a API do Gemini
       const respostaGemini = await generateText(superPrompt);
       const cenasGeradas = JSON.parse(respostaGemini);
 
-      // Mapeia o JSON do Gemini para o formato visual do aplicativo
       const novasCenas = cenasGeradas.map((cena: any, index: number) => {
         let camCena = enquadramento;
-        
-        // Ajusta o enquadramento baseado no tipo de cena
         if (cena.tipo === "HOOK") camCena = "Extreme Close-up";
         if (cena.tipo === "CTA") camCena = "Wide Shot";
 
         return {
           id: index + 1,
-          visualPrompt: `${promptBaseBruna} Camera: ${camCena}, Lens: ${lente}. Action: ${cena.acao_visual}. Expression: ${expressao}. Environment: Product Context. Style: ${iluminacao}, TikTok Shop aesthetic.`,
+          visualPrompt: `${promptBaseBruna} Camera: ${camCena}, Lens: ${lente}. Action: ${cena.acao_visual}. Expression: ${expressao}. Style: ${iluminacao}, TikTok aesthetic.`,
           audioScript: `${vozDiretiva} ${cena.fala}`,
           tipo: cena.tipo
         };
@@ -79,8 +73,8 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
 
       setScriptsSalvos(novasCenas);
     } catch (error) {
-      console.error("Erro ao gerar script com IA:", error);
-      alert("Erro ao conectar com a IA do Diretor. Tente novamente.");
+      console.error("Erro ao gerar script:", error);
+      alert("Erro ao conectar com a IA. Verifique sua chave de API.");
     } finally {
       setIsLoading(false);
     }
@@ -97,7 +91,7 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
       <div className="bg-zinc-900/95 p-6 rounded-3xl border border-red-900/40 shadow-2xl">
         <div className="flex justify-between items-center mb-8 border-b border-red-900/20 pb-4">
           <h2 className="text-white font-black tracking-tighter text-2xl uppercase flex items-center gap-3">
-            <FilmIcon className="text-red-600 w-8 h-8" /> Diretor de IA Pro
+            <RocketLaunchIcon className="text-red-600 w-8 h-8" /> Diretor de IA Pro
           </h2>
         </div>
         
@@ -116,11 +110,11 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
 
           <div className="space-y-4 bg-black/40 p-5 rounded-2xl border border-zinc-800">
              <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
-               <SquaresPlusIcon className="w-3 h-3"/> Configuração de Câmera
+               <SquaresPlusIcon className="w-3 h-3"/> Câmera
              </label>
              <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <p className="text-[9px] text-zinc-600 uppercase mb-1 font-bold">Enquadramento (Base)</p>
+                  <p className="text-[9px] text-zinc-600 uppercase mb-1 font-bold">Enquadramento</p>
                   <select value={enquadramento} onChange={(e)=>setEnquadramento(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 p-2 rounded-lg text-xs text-white outline-none">
                     <option>Close-up</option>
                     <option>Medium Shot</option>
@@ -138,7 +132,7 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
 
           <div className="space-y-4 bg-black/40 p-5 rounded-2xl border border-zinc-800">
              <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
-               <SparklesIcon className="w-3 h-3"/> Direção da Bruna & IA
+               <SparklesIcon className="w-3 h-3"/> Direção Bruna
              </label>
 
              <div className="space-y-4">
@@ -152,7 +146,7 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
                 </div>
 
                 <div className="flex items-center justify-between bg-zinc-900 p-3 rounded-xl">
-                  <span className="text-zinc-400 text-[10px] font-bold uppercase">Cenas (Roteiro)</span>
+                  <span className="text-zinc-400 text-[10px] font-bold uppercase">Cenas</span>
                   <div className="flex items-center gap-4">
                     <button onClick={() => setNumCenas(Math.max(2, numCenas - 1))} className="text-red-500 font-black">-</button>
                     <span className="text-white font-mono">{numCenas}</span>
@@ -165,7 +159,7 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
                   disabled={isLoading || !produto}
                   className="w-full bg-red-700 hover:bg-red-600 text-white font-black py-4 rounded-xl uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
                 >
-                  {isLoading ? 'A IA ESTÁ ESCREVENDO...' : 'Gerar Roteiro Pro'}
+                  {isLoading ? 'IA ESCREVENDO...' : 'Gerar Roteiro'}
                   <SparklesIcon className="w-5 h-5"/>
                 </button>
              </div>
@@ -186,7 +180,7 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
               
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-zinc-600 text-[9px] uppercase font-black">Visual Prompt (Ação Dinâmica)</label>
+                  <label className="text-zinc-600 text-[9px] uppercase font-black">Visual Prompt</label>
                   <textarea 
                     value={cena.visualPrompt}
                     onChange={(e) => atualizarCenaManual(idx, 'visualPrompt', e.target.value)}
@@ -195,7 +189,7 @@ export const DiretorIA: React.FC<DiretorIAProps> = ({ scriptsSalvos, setScriptsS
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-red-900 text-[9px] uppercase font-black">Script de Voz (Copy)</label>
+                  <label className="text-red-900 text-[9px] uppercase font-black">Voz Bruna</label>
                   <textarea 
                     value={cena.audioScript}
                     onChange={(e) => atualizarCenaManual(idx, 'audioScript', e.target.value)}
