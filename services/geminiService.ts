@@ -18,6 +18,7 @@ const getAI = () => {
 
 /**
  * --- GERAÇÃO DE TEXTO & ROTEIRO ---
+ * Modelo: gemini-3.1-flash-lite-preview
  */
 export const generateText = async (prompt: string): Promise<string> => {
     const ai = getAI();
@@ -40,12 +41,8 @@ export const generateCastingPrompts = async (inputMassa: string): Promise<any[]>
     const prompt = `
         Aja como um Engenheiro de Prompts especialista em personagens 3D antropomórficos.
         Transforme esta ideia em um DNA estruturado para cada personagem: "${inputMassa}"
-
-        REGRAS PARA O "fullPrompt":
-        Deve ser um texto longo em INGLÊS seguindo o padrão de 3D render ultra-detalhado, fundo branco.
-
-        RETORNE APENAS UM ARRAY JSON:
-        [{"fruit": "nome", "gender": "m/f", "age": "X", "style": "profissão", "fullPrompt": "..."}]
+        Retorne APENAS um array JSON:
+        [{"fruit": "nome", "gender": "m/f", "age": "X", "style": "profissão", "fullPrompt": "prompt em inglês para 3d render"}]
     `;
     const responseText = await generateText(prompt);
     try {
@@ -62,8 +59,10 @@ export const generateCastingPrompts = async (inputMassa: string): Promise<any[]>
  */
 export const generateNovelaScript = async (ideia: string, personagensDesc: string): Promise<any> => {
     const prompt = `
-        Aja como um Roteirista de Novelas Virais. História: ${ideia}. Personagens: ${personagensDesc}.
-        Divida em blocos de 8s. Retorne JSON: [ {Cena, Visual_Prompt, Motion_Prompt, Dialogo} ]
+        Aja como um Roteirista de Novelas Virais. 
+        História Base: ${ideia}
+        Personagens Atuais: ${personagensDesc}
+        Divida em blocos de 8 segundos. Retorne apenas JSON com: Cena, Visual_Prompt, Motion_Prompt, Dialogo.
     `;
     const responseText = await generateText(prompt);
     try {
@@ -102,9 +101,9 @@ export const generateVideo = async (
     durationSeconds: number = 8 
 ): Promise<string> => {
     const ai = getAI();
-    onProgress(`Iniciando animação de ${durationSeconds}s com Veo 3.1 Lite...`);
+    onProgress(`Iniciando animação de ${durationSeconds}s com Veo 3.1...`);
     
-    const base64Data = image.preview.split(',')[1];
+    const base64Data = image.preview ? image.preview.split(',')[1] : image.base64;
 
     let operation = await (ai as any).models.generateVideos({
         model: 'veo-3.1-lite-generate-preview', 
@@ -126,28 +125,46 @@ export const generateVideo = async (
 };
 
 /**
- * --- FUNÇÕES DE EDIÇÃO E ANÁLISE ---
+ * --- COMPOSIÇÃO DE CENA (USADO NO SCENECOLLAGE) ---
  */
-export const editImage = async (mainImage: ImageFile, prompt: string, aspectRatio: AspectRatio, referenceImage?: ImageFile): Promise<string> => {
+export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const ai = getAI();
-    const parts = [{ inlineData: { data: mainImage.preview.split(',')[1], mimeType: 'image/png' } }];
-    if (referenceImage) parts.push({ inlineData: { data: referenceImage.preview.split(',')[1], mimeType: 'image/png' } });
-    parts.push({ text: prompt });
+    const parts = images.map(img => ({
+        inlineData: { 
+            data: img.preview ? img.preview.split(',')[1] : img.base64, 
+            mimeType: 'image/png' 
+        }
+    }));
+    
+    parts.push({ text: `Integre estes elementos em uma cena única coerente: ${prompt}. Mantenha o estilo visual.` });
 
     const response = await ai.models.generateContent({
         model: 'gemini-3.1-flash-lite-preview',
         contents: [{ parts }],
-        config: { imageConfig: { aspectRatio } } as any,
     });
+
     const resultPart = response.candidates[0].content.parts.find(p => p.inlineData);
     if (resultPart) return `data:${resultPart.inlineData.mimeType};base64,${resultPart.inlineData.data}`;
-    throw new Error("Falha ao editar.");
+    
+    // Se não retornar imagem direta, usamos o prompt para gerar uma nova via Imagen
+    return await generateImage(prompt, aspectRatio);
+};
+
+/**
+ * --- EDIÇÃO E ANÁLISE ---
+ */
+export const editImage = async (mainImage: ImageFile, prompt: string, aspectRatio: AspectRatio): Promise<string> => {
+    return await generateSceneFromImages([mainImage], prompt, aspectRatio);
 };
 
 export const analyzeImage = async (image: ImageFile): Promise<string> => {
     const ai = getAI();
+    const base64Data = image.preview ? image.preview.split(',')[1] : image.base64;
     const contents = {
-        parts: [{ inlineData: { mimeType: 'image/png', data: image.preview.split(',')[1] } }, { text: "Descreva esta imagem para prompt de vídeo." }]
+        parts: [
+            { inlineData: { mimeType: 'image/png', data: base64Data } }, 
+            { text: "Descreva esta imagem para um prompt de vídeo ultra-realista." }
+        ]
     };
     const response = await ai.models.generateContent({ model: 'gemini-3.1-flash-lite-preview', contents });
     return response.text;
@@ -155,9 +172,14 @@ export const analyzeImage = async (image: ImageFile): Promise<string> => {
 
 export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
     const ai = getAI();
-    let promptText = `Crie um prompt em inglês para fundo: "${description}". Estética cinematográfica.`;
+    let promptText = `Crie um prompt detalhado em inglês para background: "${description}".`;
     const parts = [{ text: promptText }];
-    if (reference) parts.unshift({ inlineData: { mimeType: 'image/png', data: reference.preview.split(',')[1] } });
+    
+    if (reference) {
+        const base64Data = reference.preview ? reference.preview.split(',')[1] : reference.base64;
+        parts.unshift({ inlineData: { mimeType: 'image/png', data: base64Data } });
+    }
+    
     const response = await ai.models.generateContent({ model: 'gemini-3.1-flash-lite-preview', contents: [{ parts }] });
     return response.text || "";
 };
