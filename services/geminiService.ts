@@ -188,23 +188,33 @@ export const analyzeImage = async (image: ImageFile): Promise<string> => {
 export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
     const ai = getAI();
     
-    // SISTEMA DE REGRAS RÍGIDAS: Proíbe "Option 1", "Layouts" e textos
-    let systemInstruction = `Act as a professional Prompt Engineer for Imagen 4.0. 
-    Transform the user description into a SINGLE, cohesive, highly detailed visual-only prompt in English.
+    // Instrução focada em MANTER a imagem de referência caso ela exista
+    let systemInstruction = `Act as a professional Image Editor. 
+    User has provided a reference image. 
+    YOUR MISSION: Modify or enhance the scene based on: "${description}".
     
-    CRITICAL RULES:
-    1. Output ONLY the descriptive paragraph. 
-    2. DO NOT include "Option 1", "Concept", or list formats.
-    3. NO text, letters, or UI elements in the scene.
-    4. Focus on cinematic lighting, 8k textures, and atmospheric depth.
-    5. The result must be one single continuous scene, not a collage or split screen.
+    STRICT RULES:
+    1. KEEP the main subject and structure of the reference image.
+    2. Enhance lighting, atmosphere, and colors.
+    3. Output ONLY a detailed visual description in English for a single-frame 8k shot.
+    4. NO TEXT in the generated image.
+    5. NO split screens or options.
     
-    User Description: "${description}"`;
+    Reference image details should be respected as the foundation.`;
 
     const parts = [{ text: systemInstruction }];
     if (reference) {
         parts.unshift({ inlineData: { mimeType: 'image/png', data: getCleanBase64(reference) } });
     }
+    
+    const response = await ai.models.generateContent({ 
+        model: 'gemini-3.1-flash-lite-preview', 
+        contents: [{ parts }] 
+    });
+
+    let result = response.text || "";
+    return result.replace(/(Option|Choice|Concept|Prompt)\s*#?\d+:?/gi, "").trim();
+};
     
     const response = await ai.models.generateContent({ 
         model: 'gemini-3.1-flash-lite-preview', 
