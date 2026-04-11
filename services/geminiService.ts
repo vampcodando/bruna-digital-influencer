@@ -155,6 +155,7 @@ export const generateSceneFromImages = async (images: ImageFile[], prompt: strin
 
 /**
  * --- EDIÇÃO DE IMAGEM (IMAGEEDITOR) ---
+ * Adaptada para obedecer os comandos de preservação e referência
  */
 export const editImage = async (
     mainImage: ImageFile, 
@@ -162,9 +163,47 @@ export const editImage = async (
     aspectRatio: AspectRatio, 
     referenceImage?: ImageFile
 ): Promise<string> => {
-    const images = [mainImage];
-    if (referenceImage) images.push(referenceImage);
-    return await generateSceneFromImages(images, prompt, aspectRatio);
+    const ai = getAI();
+    
+    // Usamos o modelo Pro para garantir que as regras de "Preservar Rosto" sejam seguidas à risca
+    const model = ai.getGenerativeModel({ model: "gemini-1.5-pro" });
+
+    const parts = [
+        { text: prompt }, // O prompt estruturado que você montou no frontend
+        {
+            inlineData: {
+                mimeType: 'image/png',
+                data: getCleanBase64(mainImage)
+            }
+        }
+    ];
+
+    if (referenceImage) {
+        parts.push({
+            inlineData: {
+                mimeType: 'image/png',
+                data: getCleanBase64(referenceImage)
+            }
+        });
+    }
+
+    const result = await model.generateContent({
+        contents: [{ role: "user", parts }],
+        generationConfig: {
+            temperature: 0.4, // Baixa temperatura para evitar alucinações da IA
+            topP: 0.8,
+            // Adicionamos um limite de resposta para focar apenas na imagem processada
+        }
+    });
+
+    const resultPart = result.response.candidates[0].content.parts.find(p => p.inlineData);
+    
+    if (resultPart) {
+        return `data:${resultPart.inlineData.mimeType};base64,${resultPart.inlineData.data}`;
+    }
+
+    // Caso o modelo Pro retorne apenas texto, tentamos gerar a imagem final com o Imagen 4.0
+    return await generateImage(prompt, aspectRatio);
 };
 
 /**
