@@ -18,11 +18,10 @@ const getAI = () => {
 
 /**
  * --- GERAÇÃO DE TEXTO & ROTEIRO ---
- * Modelo: gemini-3.1-flash-lite-preview (Alta velocidade / Baixo custo)
+ * Modelo: gemini-3.1-flash-lite-preview (Velocidade e Custo Zero/Baixo)
  */
 export const generateText = async (prompt: string): Promise<string> => {
     const ai = getAI();
-    // Padronizado para o modelo solicitado para evitar 404 de permissão
     const modelName = 'gemini-3.1-flash-lite-preview';
     
     const response = await ai.models.generateContent({
@@ -31,19 +30,19 @@ export const generateText = async (prompt: string): Promise<string> => {
     });
 
     let text = response.text || "";
-    // Limpeza rigorosa de Markdown para garantir JSON puro
+    // Limpeza de Markdown para garantir o retorno de JSON puro quando solicitado
     text = text.replace(/```json/g, "").replace(/```/g, "").trim();
     return text;
 };
 
 /**
- * --- NOVELA: CASTING TÉCNICO (LÓGICA NOTION / EM MASSA) ---
- * Esta função processa o texto corrido do seu print (ex: "mulher goiaba...")
+ * --- NOVELA: CASTING TÉCNICO (LÓGICA NOTION EM MASSA) ---
+ * Transforma sua lista de ideias em prompts estruturados para o Imagen 4.0
  */
 export const generateCastingPrompts = async (inputMassa: string): Promise<any[]> => {
     const prompt = `
         Aja como um Engenheiro de Prompts especialista em personagens 3D antropomórficos.
-        Transforme esta lista em um DNA estruturado para cada personagem: "${inputMassa}"
+        Transforme esta ideia em um DNA estruturado para cada personagem: "${inputMassa}"
 
         REGRAS PARA O "fullPrompt":
         Deve ser um texto longo em INGLÊS seguindo exatamente este padrão:
@@ -55,8 +54,8 @@ export const generateCastingPrompts = async (inputMassa: string): Promise<any[]>
             "fruit": "nome da fruta",
             "gender": "homem/mulher",
             "age": "idade",
-            "style": "estilo",
-            "fullPrompt": "PROMPT LONGO EM INGLÊS"
+            "style": "estilo/profissão",
+            "fullPrompt": "PROMPT LONGO EM INGLÊS PARA O IMAGEN 4.0"
           }
         ]
     `;
@@ -88,8 +87,7 @@ export const generateNovelaScript = async (ideia: string, personagensDesc: strin
     try {
         const start = responseText.indexOf("[");
         const end = responseText.lastIndexOf("]") + 1;
-        const cleanJson = responseText.substring(start, end);
-        return JSON.parse(cleanJson);
+        return JSON.parse(responseText.substring(start, end));
     } catch (e) {
         throw new Error("Falha ao processar roteiro.");
     }
@@ -97,6 +95,7 @@ export const generateNovelaScript = async (ideia: string, personagensDesc: strin
 
 /**
  * --- GERAÇÃO DE IMAGEM (IMAGEN 4.0) ---
+ * Modelo: imagen-4.0-generate-001
  */
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const ai = getAI();
@@ -113,6 +112,7 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio): P
 
 /**
  * --- VÍDEO (VEO 3.1 LITE - 8 SEGUNDOS) ---
+ * Modelo: veo-3.1-lite-generate-preview
  */
 export const generateVideo = async (
     image: ImageFile, 
@@ -122,7 +122,7 @@ export const generateVideo = async (
     durationSeconds: 4 | 6 | 8 = 8 
 ): Promise<string> => {
     const ai = getAI();
-    onProgress("Iniciando animação de 8s com Veo 3.1 Lite...");
+    onProgress("Gerando animação de 8s com Veo 3.1 Lite...");
     let operation = await (ai as any).models.generateVideos({
         model: 'veo-3.1-lite-generate-preview', 
         prompt,
@@ -140,22 +140,8 @@ export const generateVideo = async (
 };
 
 /**
- * --- COMPOSIÇÃO, EDIÇÃO E ANÁLISE ---
+ * --- EDIÇÃO, CENA E ANÁLISE ---
  */
-export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
-    const ai = getAI();
-    let promptText = `Crie um prompt detalhado em inglês para geração de imagem de fundo. Tema: "${description}". Estética cinematográfica, 4k.`;
-    const parts: any[] = [{ text: promptText }];
-    if (reference) {
-        parts.unshift({ inlineData: { mimeType: reference.mimeType, data: reference.base64 } });
-    }
-    const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-lite-preview',
-        contents: [{ parts }]
-    });
-    return response.text || "";
-};
-
 export const editImage = async (
     mainImage: ImageFile, 
     prompt: string, 
@@ -181,15 +167,6 @@ export const editImage = async (
     throw new Error("Falha ao editar imagem.");
 };
 
-export const analyzeImage = async (image: ImageFile): Promise<string> => {
-    const ai = getAI();
-    const contents = {
-        parts: [{ inlineData: { mimeType: image.mimeType, data: image.base64 } }, { text: "Descreva esta imagem detalhadamente para um prompt de vídeo." }]
-    };
-    const response = await ai.models.generateContent({ model: 'gemini-3.1-flash-lite-preview', contents });
-    return response.text;
-};
-
 export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const ai = getAI();
     const parts: any[] = images.map(img => ({ inlineData: { data: img.base64, mimeType: img.mimeType } }));
@@ -203,4 +180,27 @@ export const generateSceneFromImages = async (images: ImageFile[], prompt: strin
         if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
     }
     throw new Error("Falha ao gerar cena.");
+};
+
+export const analyzeImage = async (image: ImageFile): Promise<string> => {
+    const ai = getAI();
+    const contents = {
+        parts: [{ inlineData: { mimeType: image.mimeType, data: image.base64 } }, { text: "Descreva esta imagem para prompt de vídeo." }]
+    };
+    const response = await ai.models.generateContent({ model: 'gemini-3.1-flash-lite-preview', contents });
+    return response.text;
+};
+
+export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
+    const ai = getAI();
+    let promptText = `Crie um prompt detalhado em inglês para geração de imagem de fundo. Tema: "${description}". Estética cinematográfica, 4k.`;
+    const parts: any[] = [{ text: promptText }];
+    if (reference) {
+        parts.unshift({ inlineData: { mimeType: reference.mimeType, data: reference.base64 } });
+    }
+    const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite-preview',
+        contents: [{ parts }]
+    });
+    return response.text || "";
 };
