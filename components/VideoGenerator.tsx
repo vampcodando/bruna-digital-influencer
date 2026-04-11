@@ -17,7 +17,7 @@ const VideoGenerator: React.FC = () => {
     const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // ReferÃªncia para o input escondido que abre a galeria
+    // Referência para o input escondido que abre a galeria
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,7 +43,7 @@ const VideoGenerator: React.FC = () => {
             const result = await generateVideo(image, prompt); 
             setGeneratedVideoUrl(result);
         } catch (err) {
-            setError('Falha na geraÃ§Ã£o do vÃ­deo sincronizado.');
+            setError('Falha na geração do vídeo sincronizado.');
         } finally {
             setIsLoading(false);
         }
@@ -53,7 +53,7 @@ const VideoGenerator: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-left">
             <div className="space-y-6 bg-black/20 p-6 rounded-[2rem] border border-zinc-800/50">
 
-                {/* 1. ENVIO DA IMAGEM - VERSÃƒO MOBILE OPTIMIZED */}
+                {/* 1. ENVIO DA IMAGEM - VERSÃO MOBILE OPTIMIZED */}
                 <div className="space-y-2">
                     <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
                         <span className="bg-red-600 text-white w-4 h-4 rounded-full flex items-center justify-center text-[8px]">1</span>
@@ -87,7 +87,7 @@ const VideoGenerator: React.FC = () => {
                     <div className="space-y-2">
                         <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
                             <span className="bg-red-600 text-white w-4 h-4 rounded-full flex items-center justify-center text-[8px]">2</span>
-                            Formato de SaÃ­da
+                            Formato de Saída
                         </label>
                         <select 
                             value={aspectRatio} 
@@ -102,7 +102,7 @@ const VideoGenerator: React.FC = () => {
                     <div className="space-y-2">
                         <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
                             <span className="bg-red-600 text-white w-4 h-4 rounded-full flex items-center justify-center text-[8px]">3</span>
-                            DuraÃ§Ã£o
+                            Duração
                         </label>
                         <div className="flex bg-zinc-900 rounded-xl p-1 border border-zinc-800">
                             {[4, 6, 8].map((d) => (
@@ -131,7 +131,7 @@ const VideoGenerator: React.FC = () => {
                         >
                             <option value="bruna-lifestyle">Bruna - Lifestyle (Natural)</option>
                             <option value="bruna-vendedora">Bruna - Vendedora (Excited)</option>
-                            <option value="bruna-urgente">Bruna - UrgÃªncia (Fast)</option>
+                            <option value="bruna-urgente">Bruna - Urgência (Fast)</option>
                         </select>
                         <textarea 
                             value={scriptAudio}
@@ -150,7 +150,7 @@ const VideoGenerator: React.FC = () => {
                     <textarea 
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
-                        placeholder="Visual Prompt tÃ©cnico..."
+                        placeholder="Visual Prompt técnico..."
                         className="w-full bg-black border border-zinc-800 p-4 rounded-2xl text-xs text-white h-28 resize-none"
                     />
                 </div>
@@ -160,7 +160,7 @@ const VideoGenerator: React.FC = () => {
                     disabled={isLoading || !image || !prompt}
                     className="w-full flex items-center justify-center gap-3 text-sm font-black py-5 rounded-2xl bg-gradient-to-r from-red-600 to-red-800 text-white disabled:opacity-30 uppercase tracking-[0.2em]"
                 >
-                    {isLoading ? 'Gerando...' : 'Gerar VÃ­deo'}
+                    {isLoading ? 'Gerando...' : 'Gerar Vídeo'}
                     <SparklesIcon className="w-5 h-5" />
                 </button>
             </div>
