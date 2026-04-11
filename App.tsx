@@ -1,5 +1,6 @@
 // @ts-nocheck
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+const { useState, useEffect } = React; // Definição robusta para evitar erro de "useState is not defined"
 import Header from './components/Header';
 import PostCreator from './components/PostCreator';
 import ImageEditor from './components/ImageEditor';
@@ -7,10 +8,18 @@ import ImageGenerator from './components/ImageGenerator';
 import SceneCollage from './components/SceneCollage';
 import VideoGenerator from './components/VideoGenerator';
 import { DiretorIA } from './components/DiretorIA'; 
-import { FabricaFrutas } from './components/FabricaFrutas'; // NOVO COMPONENTE
+// Certifique-se de que este arquivo existe em ./components/FabricaFrutas.tsx
+import { FabricaFrutas } from './components/FabricaFrutas'; 
 import TabButton from './components/TabButton';
 import Login from './components/Login';
-import { SparklesIcon, PencilSquareIcon, PhotoIcon, SquaresPlusIcon, FilmIcon, RocketLaunchIcon } from './components/Icons';
+import { 
+  SparklesIcon, 
+  PencilSquareIcon, 
+  PhotoIcon, 
+  SquaresPlusIcon, 
+  FilmIcon, 
+  RocketLaunchIcon 
+} from './components/Icons';
 import { auth } from './firebase';
 import * as firebaseAuth from 'firebase/auth';
 
@@ -22,17 +31,17 @@ enum Tab {
   SceneCollage = 'SceneCollage',
   VideoGenerator = 'VideoGenerator',
   DiretorIA = 'DiretorIA', 
-  Novela = 'Novela', // NOVA ABA
+  Novela = 'Novela', 
 }
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<Tab>(Tab.PostCreator);
-  const [user, setUser] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState(Tab.PostCreator);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [scriptsPersistentes, setScriptsPersistentes] = useState<any[]>([]);
+  const [scriptsPersistentes, setScriptsPersistentes] = useState([]);
 
   useEffect(() => {
-    const unsubscribe = firebaseAuth.onAuthStateChanged(auth, (currentUser: any) => {
+    const unsubscribe = firebaseAuth.onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
     });
@@ -41,7 +50,12 @@ const App: React.FC = () => {
 
   const handleSignOut = () => firebaseAuth.signOut(auth);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#111111] text-white font-black uppercase tracking-widest">Carregando Sistema...</div>;
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#111111] text-white font-black uppercase tracking-widest">
+      Carregando Sistema...
+    </div>
+  );
+
   if (!user) return <Login />;
 
   const renderContent = () => {
@@ -52,7 +66,7 @@ const App: React.FC = () => {
       case Tab.SceneCollage: return <SceneCollage />;
       case Tab.VideoGenerator: return <VideoGenerator scripts={scriptsPersistentes} />;
       case Tab.DiretorIA: return <DiretorIA scriptsSalvos={scriptsPersistentes} setScriptsSalvos={setScriptsPersistentes} />;
-      case Tab.Novela: return <FabricaFrutas />; // RENDERIZAÇÃO DA FÁBRICA
+      case Tab.Novela: return <FabricaFrutas />; 
       default: return <PostCreator />;
     }
   };
@@ -81,17 +95,21 @@ const App: React.FC = () => {
       
       <div className="relative z-10 min-h-screen flex flex-col items-center p-4 sm:p-6 md:p-8">
         <Header />
-        <button onClick={handleSignOut} className="absolute top-4 right-4 text-[10px] font-black uppercase bg-zinc-900/50 px-4 py-2 rounded-full border border-zinc-800 hover:bg-red-600 transition-all tracking-widest">Desconectar</button>
+        <button 
+          onClick={handleSignOut} 
+          className="absolute top-4 right-4 text-[10px] font-black uppercase bg-zinc-900/50 px-4 py-2 rounded-full border border-zinc-800 hover:bg-red-600 transition-all tracking-widest"
+        >
+          Desconectar
+        </button>
         
         <main className="w-full max-w-7xl mx-auto mt-8 flex-grow">
-          {/* Menu de Navegação Atualizado */}
+          {/* Menu de Navegação */}
           <div className="mb-6 flex flex-wrap justify-center items-center bg-black/40 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-2 max-w-5xl mx-auto gap-2">
             <TabButton label="Posts" isActive={activeTab === Tab.PostCreator} onClick={() => setActiveTab(Tab.PostCreator)} icon={<SparklesIcon className="w-4 h-4" />} />
             <TabButton label="Editar" isActive={activeTab === Tab.ImageEditor} onClick={() => setActiveTab(Tab.ImageEditor)} icon={<PencilSquareIcon className="w-4 h-4" />} />
             <TabButton label="Gerar" isActive={activeTab === Tab.ImageGenerator} onClick={() => setActiveTab(Tab.ImageGenerator)} icon={<PhotoIcon className="w-4 h-4" />} />
             <TabButton label="Compor" isActive={activeTab === Tab.SceneCollage} onClick={() => setActiveTab(Tab.SceneCollage)} icon={<SquaresPlusIcon className="w-4 h-4" />} />
             <TabButton label="Diretor IA" isActive={activeTab === Tab.DiretorIA} onClick={() => setActiveTab(Tab.DiretorIA)} icon={<FilmIcon className="w-4 h-4" />} />
-            {/* NOVO BOTÃO DA NOVELA */}
             <TabButton label="Novela" isActive={activeTab === Tab.Novela} onClick={() => setActiveTab(Tab.Novela)} icon={<RocketLaunchIcon className="w-4 h-4" />} />
             <TabButton label="Vídeo" isActive={activeTab === Tab.VideoGenerator} onClick={() => setActiveTab(Tab.VideoGenerator)} icon={<FilmIcon className="w-4 h-4" />} />
           </div>
@@ -109,4 +127,5 @@ const App: React.FC = () => {
     </div>
   );
 };
+
 export default App;
