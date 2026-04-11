@@ -1,37 +1,28 @@
 import React, { useState } from 'react';
-import { AspectRatio } from '../types';
-import { generateImage } from '../services/geminiService';
-import { SparklesIcon, PhotoIcon } from './Icons';
+import FileUpload from './FileUpload';
+import { ImageFile, AspectRatio } from '../types';
+import { editImage } from '../services/geminiService';
+import { SparklesIcon, MagnifyingGlassIcon, ShieldCheckIcon, XCircleIcon, PencilSquareIcon } from './Icons';
 
-const AspectRatioToggle: React.FC<{
-  value: AspectRatio;
-  label: string;
-  current: AspectRatio;
-  onClick: (value: AspectRatio) => void;
-}> = ({ value, label, current, onClick }) => (
-  <button
-    onClick={() => onClick(value)}
-    className={`px-4 py-2 rounded-lg border-2 text-center transition-all text-sm font-semibold
-      ${current === value ? 'bg-red-500/20 border-red-500 text-white' : 'bg-gray-800/30 border-gray-700 hover:border-red-400 text-gray-300'}`}
-  >
-    {label}
-  </button>
-);
-
-const ImageGenerator: React.FC = () => {
+const ImageEditor: React.FC = () => {
+    const [image, setImage] = useState<ImageFile | null>(null);
+    const [referenceImage, setReferenceImage] = useState<ImageFile | null>(null);
     const [prompt, setPrompt] = useState('');
-    const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
+    const [preserveFace, setPreserveFace] = useState(false);
+    const [preserveRefFace, setPreserveRefFace] = useState(false);
+    const [marketingMode, setMarketingMode] = useState(false);
+    const [aspectRatio, setAspectRatio] = useState<AspectRatio>('9:16');
     const [isLoading, setIsLoading] = useState(false);
-    const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+    const [editedImage, setEditedImage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     const handleDownload = async () => {
-        if (!generatedImage) return;
+        if (!editedImage) return;
 
         try {
             const img = new Image();
             img.crossOrigin = "anonymous";
-            img.src = generatedImage;
+            img.src = editedImage;
 
             img.onload = () => {
                 const canvas = document.createElement('canvas');
@@ -49,7 +40,7 @@ const ImageGenerator: React.FC = () => {
                     const link = document.createElement('a');
                     link.style.display = 'none';
                     link.href = url;
-                    link.download = `CrIA-Base-Gen-${Date.now()}.png`;
+                    link.download = `CrIA-Base-Edit-${Date.now()}.png`;
 
                     document.body.appendChild(link);
                     link.click();
@@ -61,98 +52,226 @@ const ImageGenerator: React.FC = () => {
                 }, 'image/png');
             };
         } catch (err) {
-            console.error("Erro ao baixar:", err);
-            setError("Erro ao preparar download.");
+            console.error("Erro ao processar download:", err);
+            setError("Falha ao preparar o download da imagem.");
         }
     };
 
-    const handleGenerate = async () => {
-        if (!prompt) {
-            setError('Por favor, insira um prompt para gerar a imagem.');
+    const handleEdit = async () => {
+        if (!image || !prompt) {
+            setError('Por favor, envie uma imagem principal e um comando.');
             return;
         }
         setIsLoading(true);
         setError(null);
-        setGeneratedImage(null);
+        setEditedImage(null);
+        
+        let finalPrompt = prompt;
 
+        // Lógica de construção de prompt estruturado para domar a IA
+        if (preserveFace || preserveRefFace || marketingMode) {
+            finalPrompt = `You are a world-class advertising photographer and digital retouching expert.\n\n`;
+            finalPrompt += `**PRIMARY DIRECTIVE**: Create a perfect commercial image by modifying the Main Image based on these exact requirements.\n`;
+            finalPrompt += `**USER COMMAND**: "${prompt}"\n\n`;
+            finalPrompt += `**ASSETS PROVIDED**:\n`;
+            finalPrompt += `- Image 1 (Main): The scene and subject to be edited.\n`;
+            if (referenceImage) {
+                 finalPrompt += `- Image 2 (Reference): The ABSOLUTE SOURCE OF TRUTH for the object, product, or person's identity.\n`;
+            }
+            finalPrompt += `\n**EXECUTION PROTOCOL (STRICT COMPLIANCE REQUIRED)**:\n`;
+            if (preserveFace) {
+                finalPrompt += `1. **ZERO-TOLERANCE MAIN FACE PRESERVATION**: The facial identity of the person ALREADY IN the Main Image (Image 1) must remain 100% unchanged.\n`;
+            }
+            if (preserveRefFace && referenceImage) {
+                finalPrompt += `2. **IDENTITY CLONING (REFERENCE IMAGE)**: Transfer the EXACT face from Image 2 onto the subject in Image 1. It must be identical to Image 2.\n`;
+            }
+            if (marketingMode) {
+                finalPrompt += `3. **PIXEL-PERFECT PRODUCT INTEGRATION**: Transfer products/apparel EXACTLY from Image 2. Include labels and logos.\n`;
+                finalPrompt += `4. **ANATOMICAL POSE RIGOR**: Ensure realistic limb/finger placement.\n`;
+                finalPrompt += `5. **PHOTOREALISTIC LIGHTING**: Match lighting and shadows perfectly.\n`;
+            }
+            finalPrompt += `\n**FINAL VERIFICATION**: Cinematic high-resolution quality only. Export as clean image.`;
+        }
+        
         try {
-            // Utilizando a função pura conforme sua lógica antiga
-            const image = await generateImage(prompt, aspectRatio);
-            setGeneratedImage(image);
+            const result = await editImage(image, finalPrompt, aspectRatio, referenceImage ?? undefined);
+            setEditedImage(result);
         } catch (e) {
-            setError(e instanceof Error ? e.message : 'Ocorreu um erro desconhecido ao gerar a imagem.');
+            setError(e instanceof Error ? e.message : 'Ocorreu um erro desconhecido.');
         } finally {
             setIsLoading(false);
         }
     };
 
-    const inputClass = "w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors placeholder:text-gray-500 text-white";
-    const labelClass = "block mb-2 text-sm font-medium text-gray-300";
-
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-            <div className="space-y-6">
-                <div>
-                    <label htmlFor="prompt" className={labelClass}>1. Descreva a Imagem</label>
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                     <div>
+                        <h3 className="text-lg font-semibold mb-2 text-red-400 flex items-center gap-2">
+                           <SparklesIcon className="w-5 h-5" /> 1. Imagem Principal
+                        </h3>
+                        <FileUpload 
+                            id="main-image-upload" 
+                            onFileSelect={setImage} 
+                            onFileClear={() => setImage(null)}
+                        />
+                    </div>
+                     <div>
+                        <h3 className="text-lg font-semibold mb-2 text-gray-400 flex items-center gap-2">
+                           <MagnifyingGlassIcon className="w-5 h-5" /> Objeto/Pessoa de Referência
+                        </h3>
+                        <FileUpload 
+                            id="reference-image-upload" 
+                            onFileSelect={setReferenceImage} 
+                            onFileClear={() => setReferenceImage(null)}
+                            showImageSearch 
+                        />
+                    </div>
+                </div>
+
+                <div className="bg-gray-900/40 p-6 rounded-2xl border border-gray-800 shadow-inner">
+                    <h3 className="text-lg font-semibold mb-4 text-red-400 flex items-center gap-2">
+                        <PencilSquareIcon className="w-5 h-5" /> Configurações de Edição
+                    </h3>
+                    
+                    <div className="mb-6">
+                        <label className="block text-xs font-bold text-gray-500 mb-3 uppercase tracking-widest">Formato de Saída</label>
+                        <div className="flex flex-wrap gap-2">
+                            {(['9:16', '16:9', '1:1', '4:3', '3:4'] as AspectRatio[]).map((ratio) => (
+                                <button
+                                    key={ratio}
+                                    onClick={() => setAspectRatio(ratio)}
+                                    className={`px-4 py-2 rounded-xl border text-sm font-bold transition-all
+                                    ${aspectRatio === ratio 
+                                        ? 'bg-red-600 border-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)] scale-105' 
+                                        : 'bg-gray-800/50 border-gray-700 hover:border-gray-500 text-gray-400'
+                                    }`}
+                                >
+                                    {ratio === '9:16' ? 'TikTok (9:16)' : ratio}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest">Instruções para a IA</label>
                     <textarea
-                        id="prompt"
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
-                        placeholder="Ex: Um jogador de futebol do Internacional comemorando um gol no estádio Beira-Rio, estilo hyper-realista, iluminação dramática..."
-                        rows={5}
-                        className={inputClass}
+                        placeholder="Ex: Substitua a pessoa da imagem principal pelo jogador da referência..."
+                        rows={4}
+                        className="w-full p-4 bg-gray-950/50 border border-gray-700 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all placeholder:text-gray-600 text-white shadow-inner mb-4"
                     />
-                </div>
-
-                <div>
-                    <h3 className={labelClass}>2. Escolha a Proporção</h3>
-                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                        <AspectRatioToggle value="1:1" label="1:1" current={aspectRatio} onClick={setAspectRatio} />
-                        <AspectRatioToggle value="16:9" label="16:9" current={aspectRatio} onClick={setAspectRatio} />
-                        <AspectRatioToggle value="9:16" label="9:16" current={aspectRatio} onClick={setAspectRatio} />
-                        <AspectRatioToggle value="4:3" label="4:3" current={aspectRatio} onClick={setAspectRatio} />
-                        <AspectRatioToggle value="3:4" label="3:4" current={aspectRatio} onClick={setAspectRatio} />
-                    </div>
-                </div>
-                
-                <button 
-                    onClick={handleGenerate} 
-                    disabled={isLoading || !prompt}
-                    className="w-full flex items-center justify-center gap-2 text-lg font-bold py-4 px-6 rounded-xl bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
-                >
-                    {isLoading ? 'Gerando Imagem...' : 'Gerar Imagem'}
-                    <SparklesIcon className="w-5 h-5" />
-                </button>
-            </div>
-
-            <div className="flex flex-col items-center justify-center h-full bg-gray-900/50 rounded-lg p-4 min-h-[400px] md:min-h-full border border-gray-800 border-dashed">
-                {isLoading && (
-                    <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div>
-                        <p className="mt-4 text-gray-300 font-bold uppercase text-[10px] tracking-widest">Criando sua imagem...</p>
-                    </div>
-                )}
-                {error && <p className="text-red-400 text-center font-bold text-sm">{error}</p>}
-                {generatedImage && (
-                    <div className="w-full">
-                        <img src={generatedImage} alt="Generated" className="rounded-lg w-full object-contain mb-4 shadow-2xl border border-gray-700" />
-                        <button 
-                            onClick={handleDownload}
-                            className="inline-block w-full text-center py-3 px-4 bg-red-600 hover:bg-red-700 rounded-lg text-white font-bold transition-colors uppercase tracking-widest text-xs"
+                    
+                    <div className="grid grid-cols-1 gap-3 mb-6">
+                        <div 
+                            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center gap-3 ${preserveFace ? 'bg-red-900/30 border-red-500' : 'bg-gray-800/20 border-gray-700'}`} 
+                            onClick={() => setPreserveFace(!preserveFace)}
                         >
-                            Baixar Imagem (.PNG)
-                        </button>
+                            <input type="checkbox" checked={preserveFace} readOnly className="h-5 w-5 rounded border-gray-500 bg-gray-700 text-red-600" />
+                            <div>
+                                <span className="font-bold text-sm text-white flex items-center gap-2 uppercase tracking-tight">
+                                    <ShieldCheckIcon className="w-4 h-4 text-red-500" />
+                                    Preservar Rosto Principal
+                                </span>
+                                <p className="text-[10px] text-gray-400 mt-0.5 uppercase">Mantém a pessoa da Imagem 1</p>
+                            </div>
+                        </div>
+
+                        <div 
+                            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center gap-3 ${preserveRefFace ? 'bg-red-900/30 border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)]' : 'bg-gray-800/20 border-gray-700'}`} 
+                            onClick={() => setPreserveRefFace(!preserveRefFace)}
+                        >
+                            <input type="checkbox" checked={preserveRefFace} readOnly className="h-5 w-5 rounded border-gray-500 bg-gray-700 text-red-600" />
+                            <div>
+                                <span className="font-bold text-sm text-white flex items-center gap-2 uppercase tracking-tight">
+                                    <SparklesIcon className="w-4 h-4 text-red-500" />
+                                    Preservar Rosto da Referência
+                                </span>
+                                <p className="text-[10px] text-gray-400 mt-0.5 uppercase text-red-400 font-bold">Clona a Identidade da Imagem 2</p>
+                            </div>
+                        </div>
+
+                        <div 
+                            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center gap-3 ${marketingMode ? 'bg-red-900/30 border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)]' : 'bg-gray-800/20 border-gray-700'}`} 
+                            onClick={() => setMarketingMode(!marketingMode)}
+                        >
+                            <input type="checkbox" checked={marketingMode} readOnly className="h-5 w-5 rounded border-gray-500 bg-gray-700 text-red-600" />
+                            <div>
+                                <span className="font-bold text-sm text-white flex items-center gap-2 uppercase tracking-tight">
+                                    <SparklesIcon className="w-4 h-4 text-red-500" />
+                                    Modo Campanha (Produtos)
+                                </span>
+                                <p className="text-[10px] text-gray-400 mt-0.5 uppercase">Fidelidade Total a Objetos e Poses</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={handleEdit} 
+                        disabled={isLoading || !image || !prompt}
+                        className="w-full flex items-center justify-center gap-3 font-black py-4 px-6 rounded-xl bg-gradient-to-br from-red-500 to-red-800 hover:from-red-400 hover:to-red-700 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-900/20 uppercase tracking-widest text-sm"
+                    >
+                        {isLoading ? 'Processando Edição...' : 'Aplicar Edição'}
+                        <SparklesIcon className="w-5 h-5" />
+                    </button>
+                </div>
+            </div>
+            
+            {error && (
+                <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-xl text-red-400 text-sm font-semibold flex items-center gap-3">
+                    <XCircleIcon className="w-5 h-5 flex-shrink-0" />
+                    {error}
+                </div>
+            )}
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+                {image && (
+                    <div className="group relative">
+                        <div className="absolute -top-3 left-4 px-2 py-1 bg-gray-800 rounded border border-gray-700 text-[10px] font-bold text-gray-400 uppercase z-10">Principal</div>
+                        <img src={`data:${image.mimeType};base64,${image.base64}`} alt="Original" className="rounded-2xl w-full border border-gray-800 shadow-2xl h-64 object-cover" />
                     </div>
                 )}
-                {!isLoading && !error && !generatedImage && (
-                    <div className="text-center text-gray-600">
-                       <PhotoIcon className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                       <p className="font-bold uppercase text-[10px] tracking-widest opacity-40">Aguardando seu comando</p>
+                
+                {referenceImage && (
+                    <div className="group relative">
+                        <div className="absolute -top-3 left-4 px-2 py-1 bg-gray-800 rounded border border-gray-700 text-[10px] font-bold text-gray-400 uppercase z-10">Referência</div>
+                        <img src={`data:${referenceImage.mimeType};base64,${referenceImage.base64}`} alt="Reference" className="rounded-2xl w-full border border-gray-800 shadow-2xl h-64 object-cover" />
                     </div>
                 )}
+
+                <div className="relative flex flex-col items-center justify-center bg-gray-900/30 border border-gray-800 border-dashed rounded-2xl p-6 min-h-[256px]">
+                    {isLoading && (
+                        <div className="text-center">
+                            <div className="relative">
+                                <div className="absolute inset-0 rounded-full border-4 border-red-500/20 animate-ping"></div>
+                                <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-red-500 border-r-4 border-transparent mx-auto"></div>
+                            </div>
+                            <p className="mt-6 text-red-400 font-bold uppercase tracking-widest text-[10px]">IA Trabalhando...</p>
+                        </div>
+                    )}
+                    {editedImage && (
+                        <div className="w-full">
+                            <div className="absolute -top-3 left-4 px-2 py-1 bg-red-600 rounded border border-red-500 text-[10px] font-bold text-white uppercase z-10">Resultado Final</div>
+                            <img src={editedImage} alt="Edited" className="rounded-2xl w-full border border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.2)] mb-4" />
+                            <button 
+                                onClick={handleDownload}
+                                className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-white hover:bg-gray-100 text-black font-black rounded-xl transition-all uppercase tracking-widest text-xs"
+                            >
+                                💾 Baixar Imagem (.PNG)
+                            </button>
+                        </div>
+                    )}
+                    {!isLoading && !editedImage && (
+                        <div className="text-center opacity-30">
+                            <SparklesIcon className="w-16 h-16 mx-auto mb-4 text-gray-600" />
+                            <p className="text-gray-500 font-bold uppercase text-xs tracking-widest">Aguardando Comando</p>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
 };
 
-export default ImageGenerator;
+export default ImageEditor;
