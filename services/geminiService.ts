@@ -9,7 +9,7 @@ import { ImageFile, AspectRatio } from '../types';
 const getApiKey = (): string => {
     // @ts-ignore
     const envKey = (import.meta as any).env?.VITE_API_KEY;
-    const hardcodedKey = ''; // Mantendo seu padrão
+    const hardcodedKey = ''; 
     
     const key = envKey || hardcodedKey;
     return key.trim();
@@ -20,20 +20,46 @@ const getAI = () => {
 };
 
 /**
- * --- NOVA: GERAÇÃO DE TEXTO (NECESSÁRIA PARA O DIRETOR IA) ---
- * Esta função permite que o Diretor IA crie os roteiros de Gancho, Dor e CTA.
+ * --- GERAÇÃO DE TEXTO & ROTEIRO ---
+ * Adaptada para suportar tanto o Diretor IA quanto o Roteirista de Novelas (Gemini 1.5 Pro).
  */
-export const generateText = async (prompt: string): Promise<string> => {
+export const generateText = async (prompt: string, isPro: boolean = false): Promise<string> => {
     const ai = getAI();
+    // Usa 1.5 Pro para roteiros complexos de novela e Flash para tarefas rápidas
+    const modelName = isPro ? 'gemini-1.5-pro' : 'gemini-1.5-flash';
+    
     const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: modelName,
         contents: [{ parts: [{ text: prompt }] }]
     });
 
     let text = response.text || "";
-    // Limpeza de markdown json para evitar erros no Diretor IA
     text = text.replace(/```json/g, "").replace(/```/g, "").trim();
     return text;
+};
+
+/**
+ * --- NOVELA: GERADOR DE SCRIPT EM BLOCOS (8s) ---
+ * Segue a lógica do seu Notion para criar a série de 1 minuto em takes.
+ */
+export const generateNovelaScript = async (ideia: string, personagensDesc: string): Promise<any> => {
+    const prompt = `
+        Aja como um Roteirista de Novelas Virais. 
+        História Base: ${ideia}
+        Personagens Atuais: ${personagensDesc}
+
+        Divida a história em blocos de EXATAMENTE 8 segundos para totalizar 1 minuto (aprox. 7 a 8 cenas).
+        Para cada cena, retorne um objeto JSON com:
+        - "Cena": número da cena.
+        - "Visual_Prompt": Descrição cinematográfica para o Imagen 4.0 (em inglês), incluindo detalhes dos personagens para manter consistência.
+        - "Motion_Prompt": Comando de movimento para o Veo 3.1 (em inglês).
+        - "Dialogo": Falas em Português-BR.
+
+        Retorne apenas o Array JSON puro.
+    `;
+
+    const responseText = await generateText(prompt, true); // Usa o Pro para melhor dramaturgia
+    return JSON.parse(responseText);
 };
 
 // --- GERAÇÃO DE IMAGEM (IMAGEN 4.0) ---
@@ -83,7 +109,7 @@ export const editImage = async (
     throw new Error("Falha ao editar imagem.");
 };
 
-// --- VÍDEO (RESTAURADO PARA 8 SEGUNDOS COM VEO 3.1) ---
+// --- VÍDEO (VEO 3.1 LITE - 8 SEGUNDOS) ---
 export const generateVideo = async (
     image: ImageFile, 
     prompt: string, 
@@ -95,7 +121,7 @@ export const generateVideo = async (
     
     const ai = getAI();
     const currentKey = getApiKey();
-    onProgress("Iniciando geração de vídeo...");
+    onProgress("Iniciando geração de vídeo de novela (8s)...");
     
     let operation = await (ai as any).models.generateVideos({
         model: 'veo-3.1-lite-generate-preview', 
@@ -103,14 +129,14 @@ export const generateVideo = async (
         image: { imageBytes: image.base64, mimeType: image.mimeType },
         config: { 
             numberOfVideos: 1, 
-            resolution: '720p', 
+            resolution: '720p', // Estável para o plano Lite
             aspectRatio,
             durationSeconds 
         }
     });
 
     while (!operation.done) {
-        onProgress("Processando vídeo (8s)... aguarde.");
+        onProgress("Animando cena de 8s... aguarde.");
         await new Promise(resolve => setTimeout(resolve, 10000));
         operation = await (ai as any).operations.getVideosOperation({ operation });
     }
@@ -129,7 +155,7 @@ export const generateVideo = async (
     return URL.createObjectURL(videoBlob);
 };
 
-// --- FUNÇÕES AUXILIARES ---
+// --- ANALISE E COMPOSIÇÃO (REAPROVEITADAS PARA NOVELA) ---
 export const analyzeImage = async (image: ImageFile): Promise<string> => {
     const ai = getAI();
     const contents = {
@@ -145,26 +171,13 @@ export const analyzeImage = async (image: ImageFile): Promise<string> => {
     return response.text;
 };
 
-export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
-    const ai = getAI();
-    let promptText = `Crie um prompt para geração de imagem de fundo. Tema: "${description}". Estética limpa, sem textos.`;
-    const parts: any[] = [{ text: promptText }];
-    if (reference) {
-        parts.unshift({ inlineData: { mimeType: reference.mimeType, data: reference.base64 } });
-    }
-    const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
-        contents: [{ parts }]
-    });
-    return response.text;
-};
-
+// Sua função de compor cena agora pode ser usada para unir as frutas na academia!
 export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const ai = getAI();
     const parts: any[] = images.map(img => ({
         inlineData: { data: img.base64, mimeType: img.mimeType }
     }));
-    parts.push({ text: `Integre estes elementos em uma cena cinematográfica: ${prompt}` });
+    parts.push({ text: `Integre estes elementos em uma cena cinematográfica de novela: ${prompt}` });
 
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
