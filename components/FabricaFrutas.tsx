@@ -58,11 +58,7 @@ export const FabricaFrutas = () => {
                     value={inputMassa}
                     onChange={(e) => setInputMassa(e.target.value)}
                     placeholder="Que personagem de fruta você quer criar?
-Simples ou detalhado, tanto faz.
-                    
-🍎 Exemplos: Maçã esposa fora de forma, Banana sarado professor de academia, Garota morango, 20 anos, vestido rosa
-                    
-🎯 Opcional: gênero, idade, roupa, estilo, vibe"
+Simples ou detalhado, tanto faz.🍎 Exemplos: Maçã esposa fora de forma, Banana sarado professor de academia, Garota morango, 20 anos, vestido rosa 🎯 Opcional: gênero, idade, roupa, estilo, vibe"
                     
                     className="w-full bg-black border border-zinc-800 p-5 rounded-2xl text-sm h-32 focus:border-orange-600 outline-none transition-all"
                 />
