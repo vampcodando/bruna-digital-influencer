@@ -17,8 +17,18 @@ const getAI = () => {
 };
 
 /**
+ * Helper para extrair base64 limpo, independente da origem do dado (Upload ou API)
+ */
+const getCleanBase64 = (image: ImageFile): string => {
+    if (image.preview && image.preview.includes(',')) {
+        return image.preview.split(',')[1];
+    }
+    return image.base64 || "";
+};
+
+/**
  * --- GERAÇÃO DE TEXTO & ROTEIRO ---
- * Modelo: gemini-3.1-flash-lite-preview
+ * Utilizado na Fábrica de Frutas e no Roteirista da Temporada
  */
 export const generateText = async (prompt: string): Promise<string> => {
     const ai = getAI();
@@ -36,13 +46,14 @@ export const generateText = async (prompt: string): Promise<string> => {
 
 /**
  * --- NOVELA: CASTING TÉCNICO ---
+ * Utilizado na Fábrica de Frutas para gerar o DNA dos personagens
  */
 export const generateCastingPrompts = async (inputMassa: string): Promise<any[]> => {
     const prompt = `
         Aja como um Engenheiro de Prompts especialista em personagens 3D antropomórficos.
-        Transforme esta ideia em um DNA estruturado para cada personagem: "${inputMassa}"
+        Transforme esta ideia em um DNA estruturado: "${inputMassa}"
         Retorne APENAS um array JSON:
-        [{"fruit": "nome", "gender": "m/f", "age": "X", "style": "profissão", "fullPrompt": "prompt em inglês para 3d render"}]
+        [{"fruit": "nome", "gender": "m/f", "age": "X", "style": "profissão", "fullPrompt": "prompt em inglês 3D render ultra-detalhado"}]
     `;
     const responseText = await generateText(prompt);
     try {
@@ -56,13 +67,12 @@ export const generateCastingPrompts = async (inputMassa: string): Promise<any[]>
 
 /**
  * --- NOVELA: GERADOR DE SCRIPT ---
+ * Utilizado no Roteirista da Temporada na Fábrica de Frutas
  */
 export const generateNovelaScript = async (ideia: string, personagensDesc: string): Promise<any> => {
     const prompt = `
-        Aja como um Roteirista de Novelas Virais. 
-        História Base: ${ideia}
-        Personagens Atuais: ${personagensDesc}
-        Divida em blocos de 8 segundos. Retorne apenas JSON com: Cena, Visual_Prompt, Motion_Prompt, Dialogo.
+        Aja como um Roteirista de Novelas Virais. História: ${ideia}. Personagens: ${personagensDesc}.
+        Divida em blocos de 8s. Retorne JSON: [ {Cena, Visual_Prompt, Motion_Prompt, Dialogo} ]
     `;
     const responseText = await generateText(prompt);
     try {
@@ -70,12 +80,13 @@ export const generateNovelaScript = async (ideia: string, personagensDesc: strin
         const end = responseText.lastIndexOf("]") + 1;
         return JSON.parse(responseText.substring(start, end));
     } catch (e) {
-        throw new Error("Falha no roteiro.");
+        throw new Error("Falha ao processar roteiro.");
     }
 };
 
 /**
  * --- IMAGEM (IMAGEN 4.0) ---
+ * Produção individual de ativos na Fábrica de Frutas
  */
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const ai = getAI();
@@ -87,11 +98,12 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio): P
     if (response.generatedImages?.length > 0) {
         return `data:image/jpeg;base64,${response.generatedImages[0].image.imageBytes}`;
     }
-    throw new Error("Falha na imagem.");
+    throw new Error("Falha na geração da imagem.");
 };
 
 /**
  * --- VÍDEO (VEO 3.1 LITE) ---
+ * Utilizado no VideoGenerator.tsx para animações de 8 segundos
  */
 export const generateVideo = async (
     image: ImageFile, 
@@ -101,9 +113,9 @@ export const generateVideo = async (
     durationSeconds: number = 8 
 ): Promise<string> => {
     const ai = getAI();
-    onProgress(`Iniciando animação de ${durationSeconds}s com Veo 3.1...`);
+    onProgress(`Animação de ${durationSeconds}s com Veo 3.1 Lite...`);
     
-    const base64Data = image.preview ? image.preview.split(',')[1] : image.base64;
+    const base64Data = getCleanBase64(image);
 
     let operation = await (ai as any).models.generateVideos({
         model: 'veo-3.1-lite-generate-preview', 
@@ -114,7 +126,7 @@ export const generateVideo = async (
 
     while (!operation.done) {
         await new Promise(resolve => setTimeout(resolve, 8000));
-        onProgress("Processando frames da Fábrica de Frutas...");
+        onProgress("Renderizando frames cinematográficos...");
         operation = await (ai as any).operations.getVideosOperation({ operation });
     }
 
@@ -125,33 +137,34 @@ export const generateVideo = async (
 };
 
 /**
- * --- COMPOSIÇÃO DE CENA (USADO NO SCENECOLLAGE) ---
+ * --- COMPOSIÇÃO DE CENA (SCENE COLLAGE) ---
+ * Integra múltiplos ativos em uma cena única (Exencial para o Build)
  */
 export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const ai = getAI();
     const parts = images.map(img => ({
         inlineData: { 
-            data: img.preview ? img.preview.split(',')[1] : img.base64, 
+            data: getCleanBase64(img), 
             mimeType: 'image/png' 
         }
     }));
     
-    parts.push({ text: `Integre estes elementos em uma cena única coerente: ${prompt}. Mantenha o estilo visual.` });
+    parts.push({ text: `Integre estes elementos em uma única cena 3D coerente: ${prompt}. Estilo consistente.` });
 
     const response = await ai.models.generateContent({
         model: 'gemini-3.1-flash-lite-preview',
         contents: [{ parts }],
+        config: { imageConfig: { aspectRatio } } as any,
     });
 
     const resultPart = response.candidates[0].content.parts.find(p => p.inlineData);
     if (resultPart) return `data:${resultPart.inlineData.mimeType};base64,${resultPart.inlineData.data}`;
     
-    // Se não retornar imagem direta, usamos o prompt para gerar uma nova via Imagen
     return await generateImage(prompt, aspectRatio);
 };
 
 /**
- * --- EDIÇÃO E ANÁLISE ---
+ * --- EDIÇÃO, ANÁLISE E BACKDROP ---
  */
 export const editImage = async (mainImage: ImageFile, prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     return await generateSceneFromImages([mainImage], prompt, aspectRatio);
@@ -159,11 +172,10 @@ export const editImage = async (mainImage: ImageFile, prompt: string, aspectRati
 
 export const analyzeImage = async (image: ImageFile): Promise<string> => {
     const ai = getAI();
-    const base64Data = image.preview ? image.preview.split(',')[1] : image.base64;
     const contents = {
         parts: [
-            { inlineData: { mimeType: 'image/png', data: base64Data } }, 
-            { text: "Descreva esta imagem para um prompt de vídeo ultra-realista." }
+            { inlineData: { mimeType: 'image/png', data: getCleanBase64(image) } }, 
+            { text: "Descreva esta imagem para prompt de vídeo." }
         ]
     };
     const response = await ai.models.generateContent({ model: 'gemini-3.1-flash-lite-preview', contents });
@@ -176,8 +188,7 @@ export const createBackgroundImagePrompt = async (description: string, reference
     const parts = [{ text: promptText }];
     
     if (reference) {
-        const base64Data = reference.preview ? reference.preview.split(',')[1] : reference.base64;
-        parts.unshift({ inlineData: { mimeType: 'image/png', data: base64Data } });
+        parts.unshift({ inlineData: { mimeType: 'image/png', data: getCleanBase64(reference) } });
     }
     
     const response = await ai.models.generateContent({ model: 'gemini-3.1-flash-lite-preview', contents: [{ parts }] });
