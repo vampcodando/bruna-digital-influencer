@@ -58,9 +58,12 @@ export const generateCastingPrompts = async (inputMassa: string): Promise<any[]>
     `;
     const responseText = await generateText(prompt, true);
     try {
-        const cleanJson = responseText.substring(responseText.indexOf("["), responseText.lastIndexOf("]") + 1);
+        const start = responseText.indexOf("[");
+        const end = responseText.lastIndexOf("]") + 1;
+        const cleanJson = responseText.substring(start, end);
         return JSON.parse(cleanJson);
     } catch (e) {
+        console.error("Erro no JSON de Casting:", e);
         return [];
     }
 };
@@ -78,11 +81,18 @@ export const generateNovelaScript = async (ideia: string, personagensDesc: strin
     `;
 
     const responseText = await generateText(prompt, true);
-    return JSON.parse(responseText);
+    try {
+        const start = responseText.indexOf("[");
+        const end = responseText.lastIndexOf("]") + 1;
+        const cleanJson = responseText.substring(start, end);
+        return JSON.parse(cleanJson);
+    } catch (e) {
+        throw new Error("Falha ao processar roteiro.");
+    }
 };
 
 /**
- * --- RESTAURAÇÃO: SUPORTE AO POSTCREATOR & IMAGEEDITOR ---
+ * --- SUPORTE AO POSTCREATOR & IMAGEEDITOR ---
  */
 export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
     const ai = getAI();
