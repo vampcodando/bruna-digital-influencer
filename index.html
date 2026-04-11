@@ -1,177 +1,59 @@
-// @ts-nocheck
-import React from 'react';
-// Extração segura dos hooks para evitar "ReferenceError"
-const useState = React.useState;
-const useEffect = React.useEffect;
+<!DOCTYPE html>
 
-import { generateImage, generateNovelaScript } from '../services/geminiService';
+<html lang="en">
 
-export const FabricaFrutas = () => {
-    const [personagens, setPersonagens] = useState([]); 
-    const [ideiaNovela, setIdeiaNovela] = useState("");
-    const [roteiro, setRoteiro] = useState(null);
-    const [loading, setLoading] = useState(false);
+  <head>
 
-    const handleCriarPersonagem = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        const form = new FormData(e.target);
-        const dados = Object.fromEntries(form);
+    <meta charset="UTF-8" />
 
-        // Prompt otimizado para a Bruna (ou seus amigos frutas)
-        // Mantendo consistência visual: 3D, Fundo Branco, Pixar Style
-        const promptCasting = `Full-body 3D stylized anthropomorphic ${dados.fruta} character, ${dados.genero}, ${dados.estilo}. Pixar style, ultra-detailed fruit texture, skin micro-texture, isolated on pure white background, cinematic lighting, 9:16 aspect ratio.`;
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-        try {
-            const url = await generateImage(promptCasting, "9:16");
-            setPersonagens([...personagens, { ...dados, url }]);
-            e.target.reset();
-        } catch (err) {
-            console.error(err);
-            alert("Erro na geração do personagem. Verifique a cota da API.");
-        } finally {
-            setLoading(false);
-        }
-    };
+    <title>CrIA Base</title>
 
-    return (
-        <div className="max-w-4xl mx-auto p-4 space-y-6 pb-20 text-white bg-black/20 rounded-[2.5rem] min-h-[600px] backdrop-blur-md">
-            {/* HEADER DA ABA */}
-            <div className="flex items-center justify-between border-b border-orange-900/30 pb-4">
-                <h1 className="text-orange-500 font-black text-2xl uppercase italic tracking-tighter flex items-center gap-3">
-                    <span className="bg-orange-600 w-2 h-8 rounded-full animate-pulse"></span>
-                    Fábrica de Novelas <span className="text-white/20 font-light">| Casting & Script</span>
-                </h1>
-            </div>
+    <script src="https://cdn.tailwindcss.com"></script>
 
-            {/* 1. FORMULÁRIO DE CASTING */}
-            <form onSubmit={handleCriarPersonagem} className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-zinc-900/60 p-6 rounded-[2rem] border border-zinc-800 shadow-2xl">
-                <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-black text-zinc-500 ml-2 tracking-widest">Fruta / Objeto</label>
-                    <input name="fruta" placeholder="Ex: Morango" className="w-full bg-black border border-zinc-800 p-3 rounded-xl text-sm focus:border-orange-500 outline-none transition-all text-white" required />
-                </div>
-                <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-black text-zinc-500 ml-2 tracking-widest">Gênero</label>
-                    <input name="genero" placeholder="Fem / Masc" className="w-full bg-black border border-zinc-800 p-3 rounded-xl text-sm focus:border-orange-500 outline-none transition-all text-white" />
-                </div>
-                <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-black text-zinc-500 ml-2 tracking-widest">Figurino</label>
-                    <input name="estilo" placeholder="Ex: Vestido de Gala" className="w-full bg-black border border-zinc-800 p-3 rounded-xl text-sm focus:border-orange-500 outline-none transition-all text-white" />
-                </div>
-                
-                <button 
-                    disabled={loading} 
-                    className={`md:col-span-3 py-4 rounded-xl font-black uppercase text-xs tracking-[0.3em] transition-all transform active:scale-95 ${
-                        loading ? "bg-zinc-800 text-zinc-500 cursor-not-allowed" : "bg-orange-600 hover:bg-orange-500 shadow-lg shadow-orange-900/40"
-                    }`}
-                >
-                    {loading ? "CONVOCANDO IA..." : "Adicionar ao Elenco (9:16)"}
-                </button>
-            </form>
+    <style>
 
-            {/* 2. VARAL DE ELENCO (SNAP SCROLL) */}
-            <div className="space-y-3">
-                <div className="flex justify-between items-end px-2">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Elenco Confirmado</h3>
-                    <span className="text-[10px] font-mono text-orange-500">{personagens.length} Personagens</span>
-                </div>
-                
-                <div className="flex gap-4 overflow-x-auto py-4 px-2 scrollbar-hide snap-x">
-                    {personagens.map((p, i) => (
-                        <div key={i} className="min-w-[140px] bg-zinc-900/80 p-2 rounded-2xl border border-zinc-800 text-center snap-center hover:scale-105 transition-all">
-                            <div className="relative aspect-[9/16] rounded-xl overflow-hidden shadow-2xl bg-black">
-                                <img src={p.url} className="w-full h-full object-cover" alt={p.fruta} />
-                                <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md border border-white/10">
-                                    <span className="text-[8px] font-black text-white italic">CAST {i+1}</span>
-                                </div>
-                            </div>
-                            <p className="text-[11px] mt-3 font-black uppercase text-orange-400 truncate">{p.fruta}</p>
-                        </div>
-                    ))}
-                    
-                    {personagens.length === 0 && (
-                        <div className="w-full py-16 text-center border-2 border-dashed border-zinc-800 rounded-[2rem] flex flex-col items-center justify-center opacity-40">
-                            <div className="w-12 h-12 border-2 border-zinc-700 border-t-orange-500 rounded-full animate-spin mb-4"></div>
-                            <span className="text-[10px] font-black uppercase tracking-widest">Aguardando Casting de Personagens...</span>
-                        </div>
-                    )}
-                </div>
-            </div>
+      body {
 
-            {/* 3. BLOCO DO ROTEIRISTA */}
-            {personagens.length > 0 && (
-                <div className="bg-gradient-to-br from-zinc-900 to-black p-8 rounded-[2.5rem] border border-white/5 space-y-6 shadow-2xl">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-orange-600/20 rounded-2xl">
-                            <div className="w-4 h-4 bg-orange-500 rounded-sm rotate-45"></div>
-                        </div>
-                        <div>
-                            <h2 className="text-white font-black uppercase text-sm tracking-widest">Storyteller IA</h2>
-                            <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-tighter">Gere scripts técnicos para TikTok/Reels</p>
-                        </div>
-                    </div>
-                    
-                    <textarea 
-                        value={ideiaNovela}
-                        onChange={(e) => setIdeiaNovela(e.target.value)}
-                        placeholder="Descreva a 'treta' ou o tema da cena aqui... (Ex: Discussão na academia sobre quem é mais doce)"
-                        className="w-full bg-black/50 border border-zinc-800 p-5 rounded-2xl text-sm h-32 focus:border-orange-500 outline-none transition-all placeholder:text-zinc-800 text-zinc-200"
-                    />
-                    
-                    <button 
-                        disabled={loading || !ideiaNovela}
-                        onClick={async () => {
-                            setLoading(true);
-                            try {
-                                const desc = personagens.map(p => `${p.fruta} (${p.genero})`).join(", ");
-                                const res = await generateNovelaScript(ideiaNovela, desc);
-                                setRoteiro(res);
-                            } catch (err) {
-                                console.error(err);
-                            } finally {
-                                setLoading(false);
-                            }
-                        }}
-                        className={`w-full py-5 rounded-2xl font-black uppercase text-xs tracking-[0.4em] transition-all ${
-                            loading ? "bg-zinc-800 text-zinc-600" : "bg-white text-black hover:bg-orange-500 hover:text-white"
-                        }`}
-                    >
-                        {loading ? "IA ESTÁ ESCREVENDO..." : "Gerar Roteiro em Blocos (8s)"}
-                    </button>
-                </div>
-            )}
+        font-family: 'Inter', sans-serif;
 
-            {/* 4. RESULTADO DO SCRIPT TÉCNICO */}
-            {roteiro && (
-                <div className="grid grid-cols-1 gap-6 pt-4 animate-in fade-in slide-in-from-bottom-10 duration-1000">
-                    {roteiro.map((cena, i) => (
-                        <div key={i} className="group bg-zinc-900/40 p-6 rounded-[2rem] border border-zinc-800 hover:border-orange-500/30 transition-all">
-                            <div className="flex justify-between items-center mb-6">
-                                <span className="bg-orange-600 text-white font-black text-[10px] px-4 py-1.5 rounded-full shadow-lg shadow-orange-900/20">CENA {cena.Cena}</span>
-                                <div className="flex gap-2">
-                                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                                    <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest font-mono">Audio Sync OK</span>
-                                </div>
-                            </div>
-                            
-                            <div className="grid md:grid-cols-2 gap-8">
-                                <div className="space-y-2">
-                                    <h4 className="text-[9px] font-black text-orange-500 uppercase tracking-widest ml-1">Voz do Personagem</h4>
-                                    <div className="bg-black/40 p-4 rounded-2xl border border-zinc-800 italic text-zinc-300 text-sm leading-relaxed">
-                                        "{cena.Dialogo}"
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <h4 className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Prompt de Vídeo (IA)</h4>
-                                    <div className="bg-black/20 p-4 rounded-2xl border border-dashed border-zinc-800 text-[10px] text-zinc-500 uppercase font-mono tracking-tighter">
-                                        {cena.Visual_Prompt}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-};
+      }
+
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+
+    </style>
+
+  <script type="importmap">
+
+{
+
+  "imports": {
+
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.26.0",
+
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+
+    "react": "https://aistudiocdn.com/react@^19.2.0"
+
+  }
+
+}
+
+</script>
+
+<link rel="stylesheet" href="/index.css">
+
+</head>
+
+  <body>
+
+    <div id="root"></div>
+
+    <script type="module" src="/index.tsx"></script>
+
+  </body>
+
+</html
