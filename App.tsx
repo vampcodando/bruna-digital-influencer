@@ -1,7 +1,9 @@
 // @ts-nocheck
 import React from 'react';
-// Importação robusta para evitar "useState is not defined" em builds de produção
-const { useState, useEffect } = React;
+
+// Forçamos a captura dos hooks direto do objeto React para evitar "useState is not defined"
+const useState = React.useState;
+const useEffect = React.useEffect;
 
 import Header from './components/Header';
 import PostCreator from './components/PostCreator';
@@ -104,7 +106,6 @@ const App: React.FC = () => {
         </button>
         
         <main className="w-full max-w-7xl mx-auto mt-8 flex-grow">
-          {/* Menu de Navegação */}
           <div className="mb-6 flex flex-wrap justify-center items-center bg-black/40 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-2 max-w-5xl mx-auto gap-2">
             <TabButton label="Posts" isActive={activeTab === Tab.PostCreator} onClick={() => setActiveTab(Tab.PostCreator)} icon={<SparklesIcon className="w-4 h-4" />} />
             <TabButton label="Editar" isActive={activeTab === Tab.ImageEditor} onClick={() => setActiveTab(Tab.ImageEditor)} icon={<PencilSquareIcon className="w-4 h-4" />} />
