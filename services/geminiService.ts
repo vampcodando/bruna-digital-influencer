@@ -17,13 +17,16 @@ const getAI = () => {
 };
 
 /**
- * Helper para extrair base64 limpo
+ * Helper crucial para extrair base64 limpo, 
+ * evitando erros de processamento na API do Gemini/Imagen
  */
 const getCleanBase64 = (image: ImageFile): string => {
     if (!image) return "";
+    // Se for um preview de FileReader (data:image/png;base64,...), removemos o prefixo
     if (image.preview && image.preview.includes(',')) {
         return image.preview.split(',')[1];
     }
+    // Caso contrário, retorna o base64 puro ou string vazia
     return image.base64 || "";
 };
 
@@ -40,6 +43,7 @@ export const generateText = async (prompt: string): Promise<string> => {
     });
 
     let text = response.text || "";
+    // Limpeza de blocos de código markdown para retornos JSON
     text = text.replace(/```json/g, "").replace(/```/g, "").trim();
     return text;
 };
@@ -133,14 +137,14 @@ export const generateVideo = async (
 };
 
 /**
- * --- COMPOSIÇÃO DE CENA ---
+ * --- COMPOSIÇÃO DE CENA (SCENE COLLAGE) ---
  */
 export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const ai = getAI();
     const parts = images.map(img => ({
         inlineData: { data: getCleanBase64(img), mimeType: 'image/png' }
     }));
-    parts.push({ text: `Integre os elementos: ${prompt}` });
+    parts.push({ text: `Integre os elementos em uma cena 3D única: ${prompt}` });
 
     const response = await ai.models.generateContent({
         model: 'gemini-3.1-flash-lite-preview',
@@ -149,12 +153,14 @@ export const generateSceneFromImages = async (images: ImageFile[], prompt: strin
 
     const resultPart = response.candidates[0].content.parts.find(p => p.inlineData);
     if (resultPart) return `data:${resultPart.inlineData.mimeType};base64,${resultPart.inlineData.data}`;
+    
+    // Fallback caso não retorne imagem direta na composição
     return await generateImage(prompt, aspectRatio);
 };
 
 /**
- * --- EDIÇÃO DE IMAGEM (CORREÇÃO TS2554) ---
- * Agora aceita 4 argumentos para ser compatível com o ImageEditor.tsx
+ * --- EDIÇÃO DE IMAGEM (COMPATÍVEL COM IMAGEEDITOR) ---
+ * Suporta os 4 argumentos: Imagem Base, Prompt, Proporção e Imagem de Referência
  */
 export const editImage = async (
     mainImage: ImageFile, 
@@ -175,7 +181,7 @@ export const analyzeImage = async (image: ImageFile): Promise<string> => {
     const contents = {
         parts: [
             { inlineData: { mimeType: 'image/png', data: getCleanBase64(image) } }, 
-            { text: "Descreva esta imagem para prompt de vídeo." }
+            { text: "Descreva esta imagem para prompt de vídeo detalhado." }
         ]
     };
     const response = await ai.models.generateContent({ model: 'gemini-3.1-flash-lite-preview', contents });
@@ -184,9 +190,10 @@ export const analyzeImage = async (image: ImageFile): Promise<string> => {
 
 export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
     const ai = getAI();
-    let promptText = `Crie um prompt em inglês para fundo: "${description}".`;
+    let promptText = `Crie um prompt em inglês técnico para fundo cinematográfico: "${description}".`;
     const parts = [{ text: promptText }];
     if (reference) parts.unshift({ inlineData: { mimeType: 'image/png', data: getCleanBase64(reference) } });
+    
     const response = await ai.models.generateContent({ model: 'gemini-3.1-flash-lite-preview', contents: [{ parts }] });
     return response.text || "";
 };
