@@ -23,7 +23,7 @@ const getAI = () => {
 export const generateText = async (prompt: string, isPro: boolean = false): Promise<string> => {
     const ai = getAI();
     // Se o Pro der 404, o Flash resolve 99% dos casos de lógica
-    const modelName = isPro ? 'gemini-3.1-flash-lite-preview' : 'veo-3.1-fast-generate-preview';
+    const modelName = isPro ? 'veo-3.1-fast-generate-preview' : 'veo-3.1-fast-generate-preview';
     
     const response = await ai.models.generateContent({
         model: modelName,
