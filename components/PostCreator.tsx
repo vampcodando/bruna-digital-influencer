@@ -1,26 +1,9 @@
 // @ts-nocheck
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import FileUpload from './FileUpload';
 import { ImageFile, AspectRatio } from '../types';
 import { createBackgroundImagePrompt, generateImage } from '../services/geminiService';
-import { SparklesIcon } from './Icons';
-
-const AspectRatioButton: React.FC<{
-  value: AspectRatio;
-  label: string;
-  description: string;
-  current: AspectRatio;
-  onClick: (value: AspectRatio) => void;
-}> = ({ value, label, description, current, onClick }) => (
-  <button
-    onClick={() => onClick(value)}
-    className={`p-3 rounded-xl border text-left transition-all w-full backdrop-blur-sm
-      ${current === value ? 'bg-red-600/40 border-red-500/80 ring-2 ring-red-400' : 'bg-red-900/20 border-red-500/30 hover:bg-red-900/40'}`}
-  >
-    <div className="font-bold text-md text-white">{label}</div>
-    <div className="text-xs text-gray-300">{description}</div>
-  </button>
-);
+import { SparklesIcon, CloudArrowUpIcon } from './Icons';
 
 const PostCreator: React.FC = () => {
     const [referenceImage, setReferenceImage] = useState<ImageFile | null>(null);
@@ -34,6 +17,28 @@ const PostCreator: React.FC = () => {
     const [generatedImage, setGeneratedImage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
+    // FUNÇÃO PARA QUEBRAR TEXTO E NÃO SAIR DA TELA
+    const wrapText = (ctx, text, x, y, maxWidth, lineHeight) => {
+        const words = text.split(' ');
+        let line = '';
+        let currentY = y;
+
+        for (let n = 0; n < words.length; n++) {
+            let testLine = line + words[n] + ' ';
+            let metrics = ctx.measureText(testLine);
+            let testWidth = metrics.width;
+            if (testWidth > maxWidth && n > 0) {
+                ctx.fillText(line, x, currentY);
+                line = words[n] + ' ';
+                currentY += lineHeight;
+            } else {
+                line = testLine;
+            }
+        }
+        ctx.fillText(line, x, currentY);
+        return currentY;
+    };
+
     const renderFinalPost = (bgUrl: string) => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -41,44 +46,62 @@ const PostCreator: React.FC = () => {
         img.crossOrigin = "anonymous";
         
         img.onload = () => {
-            canvas.width = img.width;
-            canvas.height = img.height;
+            // Definir tamanho baseado no aspecto escolhido
+            const targetWidth = 1080;
+            const [wRatio, hRatio] = aspectRatio.split(':').map(Number);
+            canvas.width = targetWidth;
+            canvas.height = (targetWidth / wRatio) * hRatio;
 
-            // 1. Desenha o fundo da IA
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            // 1. Desenha o fundo (Sua imagem ou a da IA)
+            // Ajuste de "Object Cover" no Canvas
+            const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+            const x = (canvas.width / 2) - (img.width / 2) * scale;
+            const y = (canvas.height / 2) - (img.height / 2) * scale;
+            ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
 
-            // 2. Overlay de Degradê (Vinheta) para legibilidade do texto
-            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            grad.addColorStop(0, 'rgba(0,0,0,0.5)');
-            grad.addColorStop(0.4, 'transparent');
-            grad.addColorStop(1, 'rgba(0,0,0,0.85)');
+            // 2. Filtro de Contraste (Vinheta Inferior Profissional)
+            const grad = ctx.createLinearGradient(0, canvas.height * 0.3, 0, canvas.height);
+            grad.addColorStop(0, 'transparent');
+            grad.addColorStop(1, 'rgba(0,0,0,0.9)');
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 3. Configuração de Estilo de Texto
+            // 3. Tipografia de Alto Impacto
             ctx.textAlign = 'center';
-            ctx.fillStyle = 'white';
-            ctx.shadowColor = 'black';
-            ctx.shadowBlur = 15;
-            ctx.shadowOffsetX = 2;
-            ctx.shadowOffsetY = 2;
+            ctx.textBaseline = 'middle';
+            
+            // Sombra "Glow" para destacar do fundo
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetX = 5;
+            ctx.shadowOffsetY = 5;
 
-            // Título (Maiúsculo e Centralizado)
-            const titleSize = Math.floor(canvas.width * 0.09);
-            ctx.font = `bold ${titleSize}px Arial Black, sans-serif`;
-            ctx.fillText(title.toUpperCase(), canvas.width / 2, canvas.height * 0.45);
+            // Renderizar Título (Maiúsculo, Fonte Forte)
+            if (title) {
+                const fontSize = Math.floor(canvas.width * 0.12);
+                ctx.font = `900 ${fontSize}px "Arial Black", Gadget, sans-serif`;
+                ctx.fillStyle = '#FFFFFF';
+                // Usamos wrapText para garantir que caiba
+                wrapText(ctx, title.toUpperCase(), canvas.width / 2, canvas.height * 0.45, canvas.width * 0.9, fontSize * 1.1);
+            }
 
-            // Subtítulo
-            const subSize = Math.floor(canvas.width * 0.045);
-            ctx.font = `bold ${subSize}px Arial, sans-serif`;
-            ctx.fillStyle = '#f3f4f6';
-            ctx.fillText(subtitle, canvas.width / 2, canvas.height * 0.51);
+            // Renderizar Subtítulo
+            if (subtitle) {
+                const subSize = Math.floor(canvas.width * 0.05);
+                ctx.font = `bold ${subSize}px Arial, sans-serif`;
+                ctx.fillStyle = '#FF0000'; // Vermelho vibrante para destaque
+                ctx.shadowBlur = 10;
+                ctx.fillText(subtitle, canvas.width / 2, canvas.height * 0.58);
+            }
 
-            // Informações (Rodapé)
-            const infoSize = Math.floor(canvas.width * 0.038);
-            ctx.font = `${infoSize}px Arial, sans-serif`;
-            ctx.fillStyle = 'white';
-            ctx.fillText(additionalInfo, canvas.width / 2, canvas.height * 0.92);
+            // Renderizar Rodapé
+            if (additionalInfo) {
+                ctx.shadowBlur = 5;
+                const infoSize = Math.floor(canvas.width * 0.035);
+                ctx.font = `bold ${infoSize}px Arial, sans-serif`;
+                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                wrapText(ctx, additionalInfo, canvas.width / 2, canvas.height * 0.92, canvas.width * 0.8, infoSize * 1.3);
+            }
 
             setGeneratedImage(canvas.toDataURL('image/png'));
             setIsLoading(false);
@@ -87,73 +110,86 @@ const PostCreator: React.FC = () => {
     };
 
     const handleGenerate = async () => {
-        if (!backgroundDescription) {
-            setError('Descreva o cenário do post.');
-            return;
-        }
         setIsLoading(true);
         setError(null);
-        setGeneratedImage(null);
 
         try {
-            const detailedPrompt = await createBackgroundImagePrompt(backgroundDescription, referenceImage || undefined);
-            const baseImage = await generateImage(detailedPrompt, aspectRatio);
-            renderFinalPost(baseImage);
-        } catch (e: any) {
-            setError('Erro: ' + e.message);
+            let finalBackground;
+
+            // LÓGICA DE DECISÃO:
+            // Se você enviou uma imagem E NÃO escreveu uma descrição de cenário, usamos a SUA imagem direta.
+            // Se você escreveu uma descrição, a IA tenta mesclar ou criar.
+            if (referenceImage && !backgroundDescription) {
+                finalBackground = referenceImage.preview;
+            } else {
+                const prompt = await createBackgroundImagePrompt(backgroundDescription || "cinematic background", referenceImage || undefined);
+                finalBackground = await generateImage(prompt, aspectRatio);
+            }
+
+            renderFinalPost(finalBackground);
+        } catch (e) {
+            setError("Erro ao processar post: " + e.message);
             setIsLoading(false);
         }
     };
 
-    const inputStyle = "w-full bg-black/60 border border-zinc-800 p-4 rounded-xl text-white outline-none focus:border-red-600 transition-all";
-    const labelStyle = "block mb-2 text-[10px] font-black uppercase tracking-widest text-red-500";
-
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-4">
-            <div className="space-y-6 bg-black/40 p-8 rounded-[2.5rem] border border-red-500/20 shadow-2xl">
-                <div>
-                    <span className={labelStyle}>1. Formato & Referência</span>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                        <AspectRatioButton value="9:16" label="Story" description="Vertical" current={aspectRatio} onClick={setAspectRatio} />
-                        <AspectRatioButton value="16:9" label="Widescreen" description="Horizontal" current={aspectRatio} onClick={setAspectRatio} />
-                    </div>
-                    <FileUpload onFileSelect={setReferenceImage} label="Imagem de Referência" />
-                </div>
+        <div className="flex flex-col lg:flex-row gap-10 p-6 max-w-7xl mx-auto">
+            {/* PAINEL DE CONTROLE */}
+            <div className="w-full lg:w-1/2 space-y-6 bg-zinc-900/50 p-8 rounded-[2rem] border border-white/10">
+                <header>
+                    <h2 className="text-2xl font-black text-white italic tracking-tighter">DESIGNER <span className="text-red-600">PRO</span></h2>
+                    <p className="text-zinc-500 text-xs uppercase font-bold tracking-widest">Geração de Posts Magníficos</p>
+                </header>
 
                 <div className="space-y-4">
-                    <span className={labelStyle}>2. Conteúdo Visual</span>
-                    <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título (Ex: DIA DE GRENAL)" className={inputStyle} />
-                    <input type="text" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="Subtítulo (Ex: Inter x Grêmio)" className={inputStyle} />
-                    <textarea value={additionalInfo} onChange={(e) => setAdditionalInfo(e.target.value)} placeholder="Info Rodapé (Ex: Estádio Beira-Rio)" className={inputStyle + " h-20"} />
-                </div>
+                    <label className="block">
+                        <span className="text-[10px] font-black text-red-500 uppercase mb-2 block">1. Sua Foto de Fundo</span>
+                        <FileUpload onFileSelect={setReferenceImage} />
+                    </label>
 
-                <div>
-                    <span className={labelStyle}>3. Cenário da IA</span>
-                    <textarea value={backgroundDescription} onChange={(e) => setBackgroundDescription(e.target.value)} placeholder="Fundo (Ex: Interior do estádio lotado com fumaça vermelha...)" className={inputStyle + " h-24"} />
-                </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <button onClick={() => setAspectRatio('9:16')} className={`p-4 rounded-xl border font-bold ${aspectRatio === '9:16' ? 'bg-red-600 border-red-500' : 'bg-black border-zinc-800 text-zinc-500'}`}>9:16 (STORY)</button>
+                        <button onClick={() => setAspectRatio('1:1')} className={`p-4 rounded-xl border font-bold ${aspectRatio === '1:1' ? 'bg-red-600 border-red-500' : 'bg-black border-zinc-800 text-zinc-500'}`}>1:1 (FEED)</button>
+                    </div>
 
-                <button onClick={handleGenerate} disabled={isLoading} className="w-full py-5 rounded-2xl bg-gradient-to-r from-red-600 to-red-800 text-white font-black uppercase tracking-[0.3em] shadow-lg hover:scale-[1.02] transition-all">
-                    {isLoading ? "PROCESSANDO..." : "Gerar Post Completo"}
-                </button>
-                {error && <p className="text-red-500 text-center text-xs font-bold">{error}</p>}
+                    <label className="block">
+                        <span className="text-[10px] font-black text-red-500 uppercase mb-2 block">2. Textos do Post</span>
+                        <input type="text" placeholder="TÍTULO DE IMPACTO" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-black border border-zinc-800 p-4 rounded-xl text-white font-bold mb-3" />
+                        <input type="text" placeholder="Subtítulo ou Chamada" value={subtitle} onChange={e => setSubtitle(e.target.value)} className="w-full bg-black border border-zinc-800 p-4 rounded-xl text-white text-sm" />
+                    </label>
+
+                    <label className="block">
+                        <span className="text-[10px] font-black text-red-500 uppercase mb-2 block">3. Instrução para IA (Opcional)</span>
+                        <textarea 
+                            placeholder="Deixe em branco para usar sua foto original. Escreva aqui se quiser que a IA altere o fundo (ex: adicione fumaça, mude as luzes)." 
+                            value={backgroundDescription} 
+                            onChange={e => setBackgroundDescription(e.target.value)} 
+                            className="w-full bg-black border border-zinc-800 p-4 rounded-xl text-white text-xs h-24"
+                        />
+                    </label>
+
+                    <button 
+                        onClick={handleGenerate} 
+                        disabled={isLoading}
+                        className="w-full py-6 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-red-900/20 uppercase tracking-widest"
+                    >
+                        {isLoading ? 'ESTILIZANDO POST...' : 'GERAR ARTE FINAL'}
+                    </button>
+                </div>
             </div>
 
-            <div className="bg-black/80 rounded-[3rem] border border-white/5 relative flex items-center justify-center min-h-[600px] overflow-hidden shadow-inner">
+            {/* PREVIEW FINAL */}
+            <div className="w-full lg:w-1/2 flex items-center justify-center bg-black rounded-[3rem] border border-white/5 min-h-[600px] overflow-hidden shadow-2xl">
                 {generatedImage ? (
-                    <div className="flex flex-col items-center p-6">
-                        <img src={generatedImage} className="max-h-[750px] rounded-2xl shadow-2xl border border-white/10" alt="Post Final" />
-                        <a href={generatedImage} download="post-final.png" className="mt-6 px-10 py-4 bg-white text-black font-black rounded-full text-xs uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Baixar Imagem</a>
+                    <div className="flex flex-col items-center p-4">
+                        <img src={generatedImage} alt="Post" className="max-h-[80vh] rounded-2xl shadow-2xl border border-white/10" />
+                        <a href={generatedImage} download="qualyhop-post.png" className="mt-6 px-12 py-4 bg-white text-black font-black rounded-full hover:bg-red-600 hover:text-white transition-all text-xs tracking-widest">BAIXAR AGORA</a>
                     </div>
                 ) : (
-                    <div className="text-center opacity-20">
-                        <SparklesIcon className="w-16 h-16 mx-auto mb-4" />
-                        <p className="font-black uppercase text-[10px] tracking-[0.3em]">Aguardando Produção</p>
-                    </div>
-                )}
-                {isLoading && (
-                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-50">
-                        <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                        <p className="text-white font-black text-[10px] tracking-[0.4em] animate-pulse">MIXANDO FUNDO E TEXTO...</p>
+                    <div className="text-center opacity-10">
+                        <SparklesIcon className="w-20 h-20 mx-auto text-white mb-4" />
+                        <p className="font-black text-white tracking-[0.5em] uppercase text-[10px]">Preview Indisponível</p>
                     </div>
                 )}
             </div>
