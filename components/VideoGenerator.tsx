@@ -10,14 +10,12 @@ const VideoGenerator: React.FC = () => {
     const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('9:16');
     const [duration, setDuration] = useState<4 | 6 | 8>(8);
     const [vozSelecionada, setVozSelecionada] = useState('bruna-lifestyle');
-    const [scriptAudio, setScriptAudio] = useState('');
     
     const [isLoading, setIsLoading] = useState(false);
     const [progressMessage, setProgressMessage] = useState('');
     const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // Referência para o input escondido que abre a galeria
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,147 +34,115 @@ const VideoGenerator: React.FC = () => {
     };
 
     const handleGenerate = async () => {
+        if (!image || !prompt) {
+            setError("Selecione uma imagem e digite o prompt de movimento.");
+            return;
+        }
+
         setIsLoading(true);
         setError(null);
-        setProgressMessage('Sincronizando Voz e Gerando Frames...');
+        setGeneratedVideoUrl(null);
+
         try {
-            const result = await generateVideo(image, prompt); 
+            // CHAMADA CORRIGIDA COM TODOS OS ARGUMENTOS
+            const result = await generateVideo(
+                image, 
+                prompt, 
+                aspectRatio, 
+                (msg) => setProgressMessage(msg), 
+                duration
+            ); 
             setGeneratedVideoUrl(result);
         } catch (err) {
-            setError('Falha na geração do vídeo sincronizado.');
+            console.error(err);
+            setError('Falha ao gerar vídeo. Verifique se o modelo Veo 3.1 está ativo na sua conta.');
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-left">
-            <div className="space-y-6 bg-black/20 p-6 rounded-[2rem] border border-zinc-800/50">
-
-                {/* 1. ENVIO DA IMAGEM - VERSÃO MOBILE OPTIMIZED */}
-                <div className="space-y-2">
-                    <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
-                        <span className="bg-red-600 text-white w-4 h-4 rounded-full flex items-center justify-center text-[8px]">1</span>
-                        Envie a Imagem Inicial (Bruna)
-                    </label>
-                    
-                    <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        onChange={handleFileChange} 
-                        accept="image/*" 
-                        className="hidden" 
-                    />
-
-                    <div 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full h-32 border-2 border-dashed border-zinc-800 rounded-2xl flex flex-col items-center justify-center gap-2 bg-zinc-900/30 hover:bg-zinc-900/50 transition-all cursor-pointer overflow-hidden"
-                    >
-                        {image ? (
-                            <img src={image.preview} alt="Preview" className="w-full h-full object-cover" />
-                        ) : (
-                            <>
-                                <SparklesIcon className="w-6 h-6 text-zinc-600" />
-                                <span className="text-[10px] text-zinc-500 font-bold uppercase">Toque para selecionar imagem</span>
-                            </>
-                        )}
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
-                            <span className="bg-red-600 text-white w-4 h-4 rounded-full flex items-center justify-center text-[8px]">2</span>
-                            Formato de Saída
-                        </label>
-                        <select 
-                            value={aspectRatio} 
-                            onChange={(e) => setAspectRatio(e.target.value as any)}
-                            className="w-full bg-zinc-900 border border-zinc-800 p-3 rounded-xl text-xs text-white outline-none focus:border-red-600"
-                        >
-                            <option value="9:16">TikTok / Reels (9:16)</option>
-                            <option value="16:9">YouTube / Wide (16:9)</option>
-                        </select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
-                            <span className="bg-red-600 text-white w-4 h-4 rounded-full flex items-center justify-center text-[8px]">3</span>
-                            Duração
-                        </label>
-                        <div className="flex bg-zinc-900 rounded-xl p-1 border border-zinc-800">
-                            {[4, 6, 8].map((d) => (
-                                <button
-                                    key={d}
-                                    onClick={() => setDuration(d as any)}
-                                    className={`flex-1 py-2 text-[10px] font-bold rounded-lg ${duration === d ? 'bg-red-700 text-white shadow-lg' : 'text-zinc-500'}`}
-                                >
-                                    {d}s
-                                </button>
-                            ))}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-6 bg-zinc-950/50 rounded-[3rem] border border-white/5">
+            <div className="space-y-6">
+                <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="aspect-[9/16] max-h-[400px] mx-auto bg-black/60 rounded-3xl border-2 border-dashed border-zinc-800 hover:border-red-600/50 transition-all cursor-pointer overflow-hidden flex flex-col items-center justify-center group"
+                >
+                    {image ? (
+                        <img src={image.preview} className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="text-center p-6">
+                            <div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                                <FilmIcon className="text-zinc-500" />
+                            </div>
+                            <p className="text-zinc-500 font-bold text-xs uppercase">Carregar Personagem</p>
                         </div>
-                    </div>
+                    )}
                 </div>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
 
-                <div className="space-y-4 bg-zinc-900/50 p-4 rounded-2xl border border-red-900/10">
-                    <label className="text-red-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
-                        <span className="bg-red-600 text-white w-4 h-4 rounded-full flex items-center justify-center text-[8px]">4</span>
-                        Sincronia de Voz (ElevenLabs)
-                    </label>
-                    <div className="space-y-3">
-                        <select 
-                            value={vozSelecionada} 
-                            onChange={(e) => setVozSelecionada(e.target.value)}
-                            className="w-full bg-zinc-950 border border-zinc-800 p-3 rounded-xl text-xs text-white outline-none"
-                        >
-                            <option value="bruna-lifestyle">Bruna - Lifestyle (Natural)</option>
-                            <option value="bruna-vendedora">Bruna - Vendedora (Excited)</option>
-                            <option value="bruna-urgente">Bruna - Urgência (Fast)</option>
-                        </select>
-                        <textarea 
-                            value={scriptAudio}
-                            onChange={(e) => setScriptAudio(e.target.value)}
-                            placeholder="Cole aqui o texto da Bruna..."
-                            className="w-full bg-black/40 border border-zinc-800 p-3 rounded-xl text-xs text-zinc-300 h-20 resize-none font-medium italic"
-                        />
-                    </div>
-                </div>
-
-                <div className="space-y-2">
-                    <label className="text-zinc-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
-                        <span className="bg-red-600 text-white w-4 h-4 rounded-full flex items-center justify-center text-[8px]">5</span>
-                        Descreva o Movimento
-                    </label>
+                <div className="space-y-4">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-red-500">Direção de Movimento</label>
                     <textarea 
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
-                        placeholder="Visual Prompt técnico..."
-                        className="w-full bg-black border border-zinc-800 p-4 rounded-2xl text-xs text-white h-28 resize-none"
+                        placeholder="Ex: Ela pisca suavemente e sorri para a câmera, luz de fundo piscando..."
+                        className="w-full bg-black/80 border border-zinc-800 p-4 rounded-2xl text-white text-sm h-24 outline-none focus:border-red-600 transition-all"
                     />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-zinc-500 block mb-2">Duração (Segundos)</label>
+                        <select 
+                            value={duration}
+                            onChange={(e) => setDuration(Number(e.target.value))}
+                            className="w-full bg-zinc-900 border border-zinc-800 p-3 rounded-xl text-white text-xs outline-none"
+                        >
+                            <option value={4}>4 Segundos</option>
+                            <option value={6}>6 Segundos</option>
+                            <option value={8}>8 Segundos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-zinc-500 block mb-2">Formato</label>
+                        <select 
+                            value={aspectRatio}
+                            onChange={(e) => setAspectRatio(e.target.value as any)}
+                            className="w-full bg-zinc-900 border border-zinc-800 p-3 rounded-xl text-white text-xs outline-none"
+                        >
+                            <option value="9:16">Vertical (Reels/TikTok)</option>
+                            <option value="16:9">Horizontal (YouTube)</option>
+                        </select>
+                    </div>
                 </div>
 
                 <button 
                     onClick={handleGenerate} 
                     disabled={isLoading || !image || !prompt}
-                    className="w-full flex items-center justify-center gap-3 text-sm font-black py-5 rounded-2xl bg-gradient-to-r from-red-600 to-red-800 text-white disabled:opacity-30 uppercase tracking-[0.2em]"
+                    className="w-full flex items-center justify-center gap-3 text-sm font-black py-4 rounded-2xl bg-gradient-to-r from-red-600 to-red-800 text-white disabled:opacity-30 uppercase tracking-[0.2em] shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
                 >
-                    {isLoading ? 'Gerando...' : 'Gerar Vídeo'}
+                    {isLoading ? 'Gerando...' : 'Gerar Animação Veo'}
                     <SparklesIcon className="w-5 h-5" />
                 </button>
+                {error && <p className="text-red-500 text-[10px] font-bold text-center uppercase tracking-tighter">{error}</p>}
             </div>
 
-            <div className="flex flex-col items-center justify-center bg-black/40 rounded-[2.5rem] p-4 min-h-[500px] border border-zinc-800/50 relative overflow-hidden">
+            <div className="flex flex-col items-center justify-center bg-black/80 rounded-[2.5rem] p-4 min-h-[500px] border border-zinc-800/50 relative overflow-hidden shadow-inner">
                 {isLoading && (
-                    <div className="text-center">
-                        <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                        <p className="text-white text-[10px] font-black uppercase tracking-widest">{progressMessage}</p>
+                    <div className="text-center z-10">
+                        <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-white text-[10px] font-black uppercase tracking-[0.3em] animate-pulse">{progressMessage}</p>
                     </div>
                 )}
                 {generatedVideoUrl && (
-                    <video src={generatedVideoUrl} controls autoPlay loop className="max-h-[500px] rounded-2xl" />
+                    <video src={generatedVideoUrl} controls autoPlay loop className="max-h-[600px] rounded-3xl shadow-2xl border border-white/10" />
                 )}
                 {!isLoading && !generatedVideoUrl && (
-                    <FilmIcon className="w-16 h-16 text-zinc-800 opacity-20" />
+                    <div className="text-center opacity-20">
+                        <FilmIcon className="w-20 h-20 text-white mx-auto mb-4" />
+                        <p className="text-white text-xs font-black uppercase tracking-widest">Aguardando Produção</p>
+                    </div>
                 )}
             </div>
         </div>
