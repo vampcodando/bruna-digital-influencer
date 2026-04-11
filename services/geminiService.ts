@@ -18,11 +18,11 @@ const getAI = () => {
 
 /**
  * --- GERAÇÃO DE TEXTO & ROTEIRO ---
- * Modelo: gemini-3.1-flash-lite-preview
+ * Modelo: gemini-3.1-flash-lite-preview (Alta velocidade / Baixo custo)
  */
-export const generateText = async (prompt: string, isPro: boolean = false): Promise<string> => {
+export const generateText = async (prompt: string): Promise<string> => {
     const ai = getAI();
-    // Usando o modelo solicitado para toda a lógica de texto e JSON
+    // Padronizado para o modelo solicitado para evitar 404 de permissão
     const modelName = 'gemini-3.1-flash-lite-preview';
     
     const response = await ai.models.generateContent({
@@ -31,17 +31,19 @@ export const generateText = async (prompt: string, isPro: boolean = false): Prom
     });
 
     let text = response.text || "";
+    // Limpeza rigorosa de Markdown para garantir JSON puro
     text = text.replace(/```json/g, "").replace(/```/g, "").trim();
     return text;
 };
 
 /**
- * --- NOVELA: CASTING TÉCNICO (LÓGICA NOTION) ---
+ * --- NOVELA: CASTING TÉCNICO (LÓGICA NOTION / EM MASSA) ---
+ * Esta função processa o texto corrido do seu print (ex: "mulher goiaba...")
  */
 export const generateCastingPrompts = async (inputMassa: string): Promise<any[]> => {
     const prompt = `
         Aja como um Engenheiro de Prompts especialista em personagens 3D antropomórficos.
-        Transforme esta ideia em um DNA estruturado para cada personagem: "${inputMassa}"
+        Transforme esta lista em um DNA estruturado para cada personagem: "${inputMassa}"
 
         REGRAS PARA O "fullPrompt":
         Deve ser um texto longo em INGLÊS seguindo exatamente este padrão:
@@ -58,14 +60,14 @@ export const generateCastingPrompts = async (inputMassa: string): Promise<any[]>
           }
         ]
     `;
-    const responseText = await generateText(prompt, true);
+    const responseText = await generateText(prompt);
     try {
         const start = responseText.indexOf("[");
         const end = responseText.lastIndexOf("]") + 1;
         const cleanJson = responseText.substring(start, end);
         return JSON.parse(cleanJson);
     } catch (e) {
-        console.error("Erro no JSON de Casting:", e);
+        console.error("Erro no parsing do Casting:", e);
         return [];
     }
 };
@@ -82,7 +84,7 @@ export const generateNovelaScript = async (ideia: string, personagensDesc: strin
         Retorne apenas um array JSON com: Cena, Visual_Prompt, Motion_Prompt, Dialogo.
     `;
 
-    const responseText = await generateText(prompt, true);
+    const responseText = await generateText(prompt);
     try {
         const start = responseText.indexOf("[");
         const end = responseText.lastIndexOf("]") + 1;
@@ -94,8 +96,7 @@ export const generateNovelaScript = async (ideia: string, personagensDesc: strin
 };
 
 /**
- * --- GERAÇÃO DE IMAGEM ---
- * Modelo: imagen-4.0-generate-001
+ * --- GERAÇÃO DE IMAGEM (IMAGEN 4.0) ---
  */
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const ai = getAI();
@@ -111,8 +112,7 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio): P
 };
 
 /**
- * --- VÍDEO (8 SEGUNDOS) ---
- * Modelo: veo-3.1-lite-generate-preview
+ * --- VÍDEO (VEO 3.1 LITE - 8 SEGUNDOS) ---
  */
 export const generateVideo = async (
     image: ImageFile, 
@@ -122,7 +122,7 @@ export const generateVideo = async (
     durationSeconds: 4 | 6 | 8 = 8 
 ): Promise<string> => {
     const ai = getAI();
-    onProgress("Iniciando animação de 8s com Veo 3.1...");
+    onProgress("Iniciando animação de 8s com Veo 3.1 Lite...");
     let operation = await (ai as any).models.generateVideos({
         model: 'veo-3.1-lite-generate-preview', 
         prompt,
@@ -130,7 +130,7 @@ export const generateVideo = async (
         config: { resolution: '720p', aspectRatio, durationSeconds }
     });
     while (!operation.done) {
-        await new Promise(resolve => setTimeout(resolve, 10000));
+        await new Promise(resolve => setTimeout(resolve, 8000));
         operation = await (ai as any).operations.getVideosOperation({ operation });
     }
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
@@ -140,21 +140,20 @@ export const generateVideo = async (
 };
 
 /**
- * --- SUPORTE E ANÁLISE ---
+ * --- COMPOSIÇÃO, EDIÇÃO E ANÁLISE ---
  */
-export const analyzeImage = async (image: ImageFile): Promise<string> => {
+export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
     const ai = getAI();
-    const contents = {
-        parts: [
-            { inlineData: { mimeType: image.mimeType, data: image.base64 } },
-            { text: "Descreva esta imagem detalhadamente para um prompt de vídeo." }
-        ]
-    };
-    const response = await ai.models.generateContent({ 
-        model: 'gemini-3.1-flash-lite-preview', 
-        contents 
+    let promptText = `Crie um prompt detalhado em inglês para geração de imagem de fundo. Tema: "${description}". Estética cinematográfica, 4k.`;
+    const parts: any[] = [{ text: promptText }];
+    if (reference) {
+        parts.unshift({ inlineData: { mimeType: reference.mimeType, data: reference.base64 } });
+    }
+    const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite-preview',
+        contents: [{ parts }]
     });
-    return response.text;
+    return response.text || "";
 };
 
 export const editImage = async (
@@ -180,4 +179,28 @@ export const editImage = async (
         if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
     }
     throw new Error("Falha ao editar imagem.");
+};
+
+export const analyzeImage = async (image: ImageFile): Promise<string> => {
+    const ai = getAI();
+    const contents = {
+        parts: [{ inlineData: { mimeType: image.mimeType, data: image.base64 } }, { text: "Descreva esta imagem detalhadamente para um prompt de vídeo." }]
+    };
+    const response = await ai.models.generateContent({ model: 'gemini-3.1-flash-lite-preview', contents });
+    return response.text;
+};
+
+export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
+    const ai = getAI();
+    const parts: any[] = images.map(img => ({ inlineData: { data: img.base64, mimeType: img.mimeType } }));
+    parts.push({ text: `Integre estes elementos em uma cena: ${prompt}` });
+    const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite-preview',
+        contents: { parts },
+        config: { imageConfig: { aspectRatio } } as any,
+    });
+    for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    }
+    throw new Error("Falha ao gerar cena.");
 };
