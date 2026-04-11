@@ -1,6 +1,8 @@
 // @ts-nocheck
 import React from 'react';
-const { useState, useEffect } = React; // Definição robusta para evitar erro de "useState is not defined"
+// Importação robusta para evitar "useState is not defined" em builds de produção
+const { useState, useEffect } = React;
+
 import Header from './components/Header';
 import PostCreator from './components/PostCreator';
 import ImageEditor from './components/ImageEditor';
@@ -8,7 +10,6 @@ import ImageGenerator from './components/ImageGenerator';
 import SceneCollage from './components/SceneCollage';
 import VideoGenerator from './components/VideoGenerator';
 import { DiretorIA } from './components/DiretorIA'; 
-// Certifique-se de que este arquivo existe em ./components/FabricaFrutas.tsx
 import { FabricaFrutas } from './components/FabricaFrutas'; 
 import TabButton from './components/TabButton';
 import Login from './components/Login';
@@ -23,7 +24,7 @@ import {
 import { auth } from './firebase';
 import * as firebaseAuth from 'firebase/auth';
 
-// 1. Atualização do Enum de Abas
+// 1. Definição do Enum de Abas
 enum Tab {
   PostCreator = 'PostCreator',
   ImageEditor = 'ImageEditor',
@@ -31,7 +32,7 @@ enum Tab {
   SceneCollage = 'SceneCollage',
   VideoGenerator = 'VideoGenerator',
   DiretorIA = 'DiretorIA', 
-  Novela = 'Novela', 
+  Novela = 'Novela',
 }
 
 const App: React.FC = () => {
