@@ -7,13 +7,16 @@ import { ImageFile, AspectRatio } from '../types';
  */
 const getApiKey = (): string => {
     const envKey = (import.meta as any).env?.VITE_API_KEY;
-    const hardcodedKey = ''; 
+    const hardcodedKey = ''; // Sua chave aqui se não usar .env
     const key = envKey || hardcodedKey;
     return key.trim();
 };
 
 const getAI = () => {
-    return new GoogleGenAI(getApiKey());
+    const key = getApiKey();
+    // No browser, precisamos passar a chave e, em alguns casos, 
+    // garantir que o objeto de configuração esteja correto.
+    return new GoogleGenAI(key);
 };
 
 /**
@@ -32,6 +35,7 @@ const getCleanBase64 = (image: ImageFile): string => {
  */
 export const generateText = async (prompt: string): Promise<string> => {
     const genAI = getAI();
+    // Usamos o Flash para textos rápidos e roteiros
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     const result = await model.generateContent(prompt);
@@ -81,10 +85,11 @@ export const generateNovelaScript = async (ideia: string, personagensDesc: strin
 
 /**
  * --- IMAGEM (IMAGEN 4.0) ---
+ * Nota: Imagen 4.0 geralmente requer Vertex AI ou acesso via gapi. 
+ * Se estiver usando o SDK comum, certifique-se que seu modelo está liberado.
  */
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const genAI = getAI();
-    // Nota: generateImages é um método específico de modelos de visão/imagem no SDK
     const response = await (genAI as any).models.generateImages({
         model: 'imagen-4.0-generate-001',
         prompt: prompt,
@@ -131,7 +136,7 @@ export const generateVideo = async (
 };
 
 /**
- * --- COMPOSIÇÃO DE CENA (SCENE COLLAGE) ---
+ * --- COMPOSIÇÃO DE CENA ---
  */
 export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const genAI = getAI();
@@ -140,7 +145,7 @@ export const generateSceneFromImages = async (images: ImageFile[], prompt: strin
     const parts = images.map(img => ({
         inlineData: { data: getCleanBase64(img), mimeType: 'image/png' }
     }));
-    parts.push({ text: `Integre os elementos em uma cena 3D única, sem textos ou divisões: ${prompt}` });
+    parts.push({ text: `Integre os elementos em uma cena única, sem textos: ${prompt}` });
 
     const result = await model.generateContent({ contents: [{ role: 'user', parts }] });
     const response = await result.response;
@@ -162,13 +167,9 @@ export const editImage = async (
 ): Promise<string> => {
     const genAI = getAI();
     
-    // Corrigido: Usando a forma correta de instanciar o modelo para evitar o erro "is not a function"
+    // Pro é essencial aqui para obedecer "Preservar Rosto"
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-pro",
-        generationConfig: {
-            temperature: 0.4,
-            topP: 0.8,
-        }
+        model: "gemini-1.5-pro"
     });
 
     const parts = [
@@ -190,8 +191,13 @@ export const editImage = async (
         });
     }
 
+    // Configuração de baixa temperatura para maior fidelidade
     const result = await model.generateContent({
-        contents: [{ role: "user", parts }]
+        contents: [{ role: "user", parts }],
+        generationConfig: {
+            temperature: 0.4,
+            topP: 0.8,
+        }
     });
 
     const response = await result.response;
@@ -201,6 +207,7 @@ export const editImage = async (
         return `data:${resultPart.inlineData.mimeType};base64,${resultPart.inlineData.data}`;
     }
 
+    // Fallback caso ele não retorne imagem direta
     return await generateImage(prompt, aspectRatio);
 };
 
@@ -222,22 +229,13 @@ export const analyzeImage = async (image: ImageFile): Promise<string> => {
 };
 
 /**
- * --- GERADOR DE PROMPT PARA FUNDO (BLOQUEIO DE OPÇÕES) ---
+ * --- GERADOR DE PROMPT PARA FUNDO ---
  */
 export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
     const genAI = getAI();
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
-    let systemInstruction = `Act as a professional Image Editor. 
-    User has provided a reference image. 
-    YOUR MISSION: Describe an enhancement of the ALREADY PROVIDED scene based on: "${description}".
-    
-    STRICT RULES:
-    1. MAINTAIN the exact structure and layout of the reference image.
-    2. Enhance lighting, colors and atmosphere for a cinematic result.
-    3. Output ONLY a detailed visual description in English.
-    4. NO "Option 1", NO labels, NO text.
-    5. Single cohesive 8k scene only.`;
+    let systemInstruction = `Act as a professional Image Editor. Describe an enhancement based on: "${description}". Output ONLY the prompt in English.`;
 
     const parts = [{ text: systemInstruction }];
     if (reference) {
@@ -247,6 +245,5 @@ export const createBackgroundImagePrompt = async (description: string, reference
     const result = await model.generateContent({ contents: [{ role: 'user', parts }] });
     const response = await result.response;
 
-    let responseText = response.text() || "";
-    return responseText.replace(/(Option|Choice|Concept|Prompt)\s*#?\d+:?/gi, "").trim();
+    return (response.text() || "").trim();
 };
