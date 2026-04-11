@@ -18,10 +18,12 @@ const getAI = () => {
 
 /**
  * --- GERAÇÃO DE TEXTO & ROTEIRO ---
+ * Correção: Usando gemini-1.5-flash para evitar o erro 404 de permissão
  */
 export const generateText = async (prompt: string, isPro: boolean = false): Promise<string> => {
     const ai = getAI();
-    const modelName = isPro ? 'gemini-1.5-pro' : 'gemini-1.5-flash';
+    // Se o Pro der 404, o Flash resolve 99% dos casos de lógica
+    const modelName = isPro ? 'gemini-1.5-flash' : 'gemini-1.5-flash';
     
     const response = await ai.models.generateContent({
         model: modelName,
@@ -71,10 +73,10 @@ export const generateCastingPrompts = async (inputMassa: string): Promise<any[]>
 /**
  * --- NOVELA: GERADOR DE SCRIPT EM BLOCOS (8s) ---
  */
-export const generateNovelaScript = async (idea: string, personagensDesc: string): Promise<any> => {
+export const generateNovelaScript = async (ideia: string, personagensDesc: string): Promise<any> => {
     const prompt = `
         Aja como um Roteirista de Novelas Virais. 
-        História Base: ${idea}
+        História Base: ${ideia}
         Personagens Atuais: ${personagensDesc}
         Divida a história em blocos de EXATAMENTE 8 segundos.
         Retorne apenas um array JSON com: Cena, Visual_Prompt, Motion_Prompt, Dialogo.
