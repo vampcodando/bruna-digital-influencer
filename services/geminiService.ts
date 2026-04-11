@@ -175,22 +175,35 @@ export const generateVideo = async (
     prompt: string, 
     aspectRatio: '16:9' | '9:16', 
     onProgress: (message: string) => void,
-    apiKey?: string, 
     durationSeconds: 4 | 6 | 8 = 8 
 ): Promise<string> => {
     const ai = getAI();
     onProgress("Iniciando animação de 8s...");
+    
+    // CORREÇÃO 400: O Veo 3.1 exige que a imagem seja enviada dentro de 'contents' como inlineData
+    // e os parâmetros de configuração devem seguir o padrão de vídeo.
     let operation = await (ai as any).models.generateVideos({
-        model: FRUIT_FACTORY_MODELS.VIDEO_GEN, 
-        prompt,
-        image: { imageBytes: image.base64, mimeType: image.mimeType },
-        config: { resolution: '720p, 1080p', aspectRatio, durationSeconds }
+        model: FRUIT_FACTORY_MODELS.VIDEO_GEN,
+        contents: [{
+            parts: [
+                { text: prompt },
+                { inlineData: { data: image.base64.split(',')[1] || image.base64, mimeType: image.mimeType } }
+            ]
+        }],
+        videoConfig: { 
+            durationSeconds: durationSeconds,
+            aspectRatio: aspectRatio === '16:9' ? 'ASPECT_RATIO_16_9' : 'ASPECT_RATIO_9_16'
+        }
     });
+
     while (!operation.done) {
         await new Promise(resolve => setTimeout(resolve, 10000));
-        operation = await (ai as any).operations.getVideosOperation({ operation });
+        operation = await (ai as any).operations.getVideosOperation({ operationName: operation.name });
     }
+
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+    if (!downloadLink) throw new Error("Link de download não gerado.");
+
     const videoResponse = await fetch(downloadLink, { headers: { 'x-goog-api-key': getApiKey() } });
     const videoBlob = await videoResponse.blob();
     return URL.createObjectURL(videoBlob);
@@ -201,7 +214,7 @@ export const generateVideo = async (
  */
 export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const ai = getAI();
-    const parts: any[] = images.map(img => ({ inlineData: { data: img.base64, mimeType: img.mimeType } }));
+    const parts: any[] = images.map(img => ({ inlineData: { data: img.base64.split(',')[1] || img.base64, mimeType: img.mimeType } }));
     parts.push({ text: `Integre estes elementos em uma cena: ${prompt}` });
     const response = await ai.models.generateContent({
         model: FRUIT_FACTORY_MODELS.VISION_EDITOR,
@@ -217,7 +230,7 @@ export const generateSceneFromImages = async (images: ImageFile[], prompt: strin
 export const analyzeImage = async (image: ImageFile): Promise<string> => {
     const ai = getAI();
     const contents = {
-        parts: [{ inlineData: { mimeType: image.mimeType, data: image.base64 } }, { text: "Descreva esta imagem." }]
+        parts: [{ inlineData: { mimeType: image.mimeType, data: image.base64.split(',')[1] || image.base64 } }, { text: "Descreva esta imagem." }]
     };
     const response = await ai.models.generateContent({ model: FRUIT_FACTORY_MODELS.VISION_EDITOR, contents });
     return response.text;
