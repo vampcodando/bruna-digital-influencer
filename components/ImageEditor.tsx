@@ -20,11 +20,13 @@ const ImageEditor: React.FC = () => {
         if (!editedImage) return;
 
         try {
+            // Cria um elemento de imagem para carregar a fonte base64
             const img = new Image();
             img.crossOrigin = "anonymous";
             img.src = editedImage;
 
             img.onload = () => {
+                // Cria um canvas para garantir a conversão real para PNG
                 const canvas = document.createElement('canvas');
                 canvas.width = img.width;
                 canvas.height = img.height;
@@ -33,9 +35,11 @@ const ImageEditor: React.FC = () => {
 
                 ctx.drawImage(img, 0, 0);
 
+                // Converte o canvas para um Blob PNG
                 canvas.toBlob((blob) => {
                     if (!blob) return;
 
+                    // Cria a URL do objeto para o download
                     const url = window.URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     link.style.display = 'none';
@@ -45,6 +49,7 @@ const ImageEditor: React.FC = () => {
                     document.body.appendChild(link);
                     link.click();
 
+                    // Limpeza
                     setTimeout(() => {
                         document.body.removeChild(link);
                         window.URL.revokeObjectURL(url);
@@ -68,7 +73,6 @@ const ImageEditor: React.FC = () => {
         
         let finalPrompt = prompt;
 
-        // Lógica de construção de prompt estruturado para domar a IA
         if (preserveFace || preserveRefFace || marketingMode) {
             finalPrompt = `You are a world-class advertising photographer and digital retouching expert.\n\n`;
             finalPrompt += `**PRIMARY DIRECTIVE**: Create a perfect commercial image by modifying the Main Image based on these exact requirements.\n`;
@@ -136,7 +140,7 @@ const ImageEditor: React.FC = () => {
                     </h3>
                     
                     <div className="mb-6">
-                        <label className="block text-xs font-bold text-gray-500 mb-3 uppercase tracking-widest">Formato de Saída</label>
+                        <label className="block text-xs font-bold text-gray-500 mb-3 uppercase tracking-widest text-white/60">Formato de Saída</label>
                         <div className="flex flex-wrap gap-2">
                             {(['9:16', '16:9', '1:1', '4:3', '3:4'] as AspectRatio[]).map((ratio) => (
                                 <button
@@ -154,7 +158,7 @@ const ImageEditor: React.FC = () => {
                         </div>
                     </div>
 
-                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest">Instruções para a IA</label>
+                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest text-white/60">Instruções para a IA</label>
                     <textarea
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
@@ -247,7 +251,7 @@ const ImageEditor: React.FC = () => {
                                 <div className="absolute inset-0 rounded-full border-4 border-red-500/20 animate-ping"></div>
                                 <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-red-500 border-r-4 border-transparent mx-auto"></div>
                             </div>
-                            <p className="mt-6 text-red-400 font-bold uppercase tracking-widest text-[10px]">IA Trabalhando...</p>
+                            <p className="mt-6 text-red-400 font-bold uppercase tracking-widest text-xs">IA Trabalhando...</p>
                         </div>
                     )}
                     {editedImage && (
