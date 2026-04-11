@@ -71,10 +71,10 @@ export const generateCastingPrompts = async (inputMassa: string): Promise<any[]>
 /**
  * --- NOVELA: GERADOR DE SCRIPT EM BLOCOS (8s) ---
  */
-export const generateNovelaScript = async (ideia: string, personagensDesc: string): Promise<any> => {
+export const generateNovelaScript = async (idea: string, personagensDesc: string): Promise<any> => {
     const prompt = `
         Aja como um Roteirista de Novelas Virais. 
-        História Base: ${ideia}
+        História Base: ${idea}
         Personagens Atuais: ${personagensDesc}
         Divida a história em blocos de EXATAMENTE 8 segundos.
         Retorne apenas um array JSON com: Cena, Visual_Prompt, Motion_Prompt, Dialogo.
