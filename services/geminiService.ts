@@ -1,23 +1,39 @@
+// @ts-nocheck
 import { GoogleGenAI } from "@google/genai";
 import { ImageFile, AspectRatio } from '../types';
 
 /**
  * --- CONFIGURAÇÃO DE SEGURANÇA ---
  * O código prioriza a chave do arquivo .env (VITE_API_KEY).
- * O .gitignore já está configurado para não subir o .env, mantendo sua chave segura.
  */
 const getApiKey = (): string => {
-    // @ts-ignore - Isso silencia o erro do compilador apenas nesta linha
+    // @ts-ignore
     const envKey = (import.meta as any).env?.VITE_API_KEY;
-    const hardcodedKey = '';
+    const hardcodedKey = ''; // Mantendo seu padrão
     
     const key = envKey || hardcodedKey;
     return key.trim();
 };
 
 const getAI = () => {
-    // No navegador (Vite), o SDK exige a chave dentro de um objeto { apiKey: string }
     return new GoogleGenAI({ apiKey: getApiKey() });
+};
+
+/**
+ * --- NOVA: GERAÇÃO DE TEXTO (NECESSÁRIA PARA O DIRETOR IA) ---
+ * Esta função permite que o Diretor IA crie os roteiros de Gancho, Dor e CTA.
+ */
+export const generateText = async (prompt: string): Promise<string> => {
+    const ai = getAI();
+    const response = await ai.models.generateContent({
+        model: 'gemini-1.5-flash',
+        contents: [{ parts: [{ text: prompt }] }]
+    });
+
+    let text = response.text || "";
+    // Limpeza de markdown json para evitar erros no Diretor IA
+    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return text;
 };
 
 // --- GERAÇÃO DE IMAGEM (IMAGEN 4.0) ---
@@ -102,7 +118,6 @@ export const generateVideo = async (
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
     if (!downloadLink) throw new Error("Link do vídeo não gerado.");
 
-    // Busca o vídeo usando a chave segura no header
     const videoResponse = await fetch(downloadLink, {
         method: 'GET',
         headers: { 'x-goog-api-key': currentKey },
