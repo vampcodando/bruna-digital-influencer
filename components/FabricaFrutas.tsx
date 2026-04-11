@@ -57,7 +57,16 @@ export const FabricaFrutas = () => {
                 <textarea 
                     value={inputMassa}
                     onChange={(e) => setInputMassa(e.target.value)}
-                    placeholder="Ex: pêra dona de casa, banana sarado academia..."
+                    placeholder="Que personagem de fruta você quer criar?
+Simples ou detalhado, tanto faz.
+
+🍎 Exemplos:
+
+Maçã
+Banana de fato de treino
+Garota morango, 20 anos, vestido rosa
+
+🎯 Opcional: gênero, idade, roupa, estilo, vibe"
                     className="w-full bg-black border border-zinc-800 p-5 rounded-2xl text-sm h-32 focus:border-orange-600 outline-none transition-all"
                 />
                 <button 
