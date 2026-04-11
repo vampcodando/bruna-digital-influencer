@@ -24,9 +24,12 @@ const VideoGenerator: React.FC = () => {
         if (file) {
             const reader = new FileReader();
             reader.onload = (event) => {
+                const base64String = event.target?.result as string;
                 setImage({
                     file: file,
-                    preview: event.target?.result as string,
+                    preview: base64String,
+                    base64: base64String, // GARANTINDO QUE O BASE64 ESTEJA PRESENTE
+                    mimeType: file.type,   // GARANTINDO O MIMETYPE
                     name: file.name
                 });
             };
@@ -41,16 +44,18 @@ const VideoGenerator: React.FC = () => {
         setGeneratedVideoUrl(null);
 
         try {
+            // CORREÇÃO: Passando os argumentos na ordem exata esperada pelo geminiService.ts
             const result = await generateVideo(
                 image, 
                 prompt, 
                 aspectRatio, 
                 (msg) => setProgressMessage(msg), 
-                duration
+                duration // Duração como 5º argumento
             ); 
             setGeneratedVideoUrl(result);
         } catch (err) {
-            setError('Falha na geração do vídeo.');
+            console.error(err);
+            setError('Falha na geração do vídeo. Verifique o console para detalhes.');
         } finally {
             setIsLoading(false);
         }
