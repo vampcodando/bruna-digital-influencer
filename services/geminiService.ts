@@ -23,7 +23,7 @@ const getAI = () => {
 export const generateText = async (prompt: string, isPro: boolean = false): Promise<string> => {
     const ai = getAI();
     // Se o Pro der 404, o Flash resolve 99% dos casos de lógica
-    const modelName = isPro ? 'veo-3.1-fast-generate-preview' : 'veo-3.1-fast-generate-preview';
+    const modelName = isPro ? 'gemini-1.5-flash' : 'gemini-1.5-flash';
     
     const response = await ai.models.generateContent({
         model: modelName,
@@ -124,7 +124,7 @@ export const editImage = async (
     parts.push({ text: prompt });
 
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
+        model: 'gemini-1.5-flash', // Corrigido para modelo estável
         contents: { parts },
         config: { imageConfig: { aspectRatio } } as any,
     });
@@ -141,7 +141,7 @@ export const editImage = async (
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const ai = getAI();
     const response = await (ai as any).models.generateImages({
-        model: 'imagen-4.0-generate-001',
+        model: 'imagen-3.0-generate-001', // Corrigido para nome estável do Imagen 3
         prompt: prompt,
         config: { numberOfImages: 1, aspectRatio },
     });
@@ -165,7 +165,7 @@ export const generateVideo = async (
     const ai = getAI();
     onProgress("Iniciando animação de 8s...");
     let operation = await (ai as any).models.generateVideos({
-        model: 'gemini-1.5-flash', 
+        model: 'veo-3.1-lite-generate-preview', // ATUALIZADO PARA O NOME CORRETO
         prompt,
         image: { imageBytes: image.base64, mimeType: image.mimeType },
         config: { resolution: '720p, 1080p', aspectRatio, durationSeconds }
@@ -188,7 +188,7 @@ export const generateSceneFromImages = async (images: ImageFile[], prompt: strin
     const parts: any[] = images.map(img => ({ inlineData: { data: img.base64, mimeType: img.mimeType } }));
     parts.push({ text: `Integre estes elementos em uma cena: ${prompt}` });
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
+        model: 'gemini-1.5-flash', // Corrigido para modelo estável
         contents: { parts },
         config: { imageConfig: { aspectRatio } } as any,
     });
@@ -203,6 +203,6 @@ export const analyzeImage = async (image: ImageFile): Promise<string> => {
     const contents = {
         parts: [{ inlineData: { mimeType: image.mimeType, data: image.base64 } }, { text: "Descreva esta imagem." }]
     };
-    const response = await ai.models.generateContent({ model: 'gemini-2.5-flash-image', contents });
+    const response = await ai.models.generateContent({ model: 'gemini-1.5-flash', contents });
     return response.text;
 };
