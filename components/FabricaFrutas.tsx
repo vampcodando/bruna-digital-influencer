@@ -1,6 +1,5 @@
 // @ts-nocheck
-import React, { useState } from 'react';
-import { generateImage, generateNovelaScript } from '../geminiService'; // Ajuste o caminho se necessário
+import { generateImage, generateNovelaScript } from '../services/geminiService';
 
 export const FabricaFrutas = () => {
     // ESTADOS: Aqui é onde as imagens ficam "salvas" nos quadradinhos
