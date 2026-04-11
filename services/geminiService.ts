@@ -165,7 +165,7 @@ export const generateVideo = async (
     const ai = getAI();
     onProgress("Iniciando animação de 8s...");
     let operation = await (ai as any).models.generateVideos({
-        model: 'gemini-3.1-flash-lite-preview', 
+        model: 'veo-3.1-lite-generate-preview', 
         prompt,
         image: { imageBytes: image.base64, mimeType: image.mimeType },
         config: { resolution: '720p, 1080p', aspectRatio, durationSeconds }
