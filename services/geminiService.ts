@@ -4,7 +4,6 @@ import { ImageFile, AspectRatio } from '../types';
 
 /**
  * --- CONFIGURAÇÃO DE SEGURANÇA ---
- * O código prioriza a chave do arquivo .env (VITE_API_KEY).
  */
 const getApiKey = (): string => {
     // @ts-ignore
@@ -21,7 +20,6 @@ const getAI = () => {
 
 /**
  * --- GERAÇÃO DE TEXTO & ROTEIRO ---
- * Adaptada para suportar tanto o Diretor IA quanto o Roteirista de Novelas (Gemini 1.5 Pro).
  */
 export const generateText = async (prompt: string, isPro: boolean = false): Promise<string> => {
     const ai = getAI();
@@ -40,7 +38,6 @@ export const generateText = async (prompt: string, isPro: boolean = false): Prom
 
 /**
  * --- NOVELA: GERADOR DE SCRIPT EM BLOCOS (8s) ---
- * Segue a lógica do seu Notion para criar a série de 1 minuto em takes.
  */
 export const generateNovelaScript = async (ideia: string, personagensDesc: string): Promise<any> => {
     const prompt = `
@@ -129,7 +126,7 @@ export const generateVideo = async (
         image: { imageBytes: image.base64, mimeType: image.mimeType },
         config: { 
             numberOfVideos: 1, 
-            resolution: '720p', // Estável para o plano Lite
+            resolution: '720p', 
             aspectRatio,
             durationSeconds 
         }
@@ -155,7 +152,7 @@ export const generateVideo = async (
     return URL.createObjectURL(videoBlob);
 };
 
-// --- ANALISE E COMPOSIÇÃO (REAPROVEITADAS PARA NOVELA) ---
+// --- ANÁLISE E COMPOSIÇÃO ---
 export const analyzeImage = async (image: ImageFile): Promise<string> => {
     const ai = getAI();
     const contents = {
@@ -171,7 +168,6 @@ export const analyzeImage = async (image: ImageFile): Promise<string> => {
     return response.text;
 };
 
-// Sua função de compor cena agora pode ser usada para unir as frutas na academia!
 export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const ai = getAI();
     const parts: any[] = images.map(img => ({
