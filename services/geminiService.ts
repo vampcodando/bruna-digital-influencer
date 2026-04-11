@@ -7,33 +7,36 @@ import { ImageFile, AspectRatio } from '../types';
  */
 const getApiKey = (): string => {
     const envKey = (import.meta as any).env?.VITE_API_KEY;
-    const hardcodedKey = ''; 
+    const hardcodedKey = ''; // Use apenas em último caso
     const key = envKey || hardcodedKey;
-    return key.trim();
+    return key?.trim() || "";
 };
 
 /**
- * CORREÇÃO DE INICIALIZAÇÃO:
- * Passando a chave diretamente na string para evitar o erro de "API Key must be set"
+ * INSTANCIAÇÃO ROBUSTA:
+ * Criamos a instância fora das funções para garantir que ela 
+ * capture a chave assim que o módulo for carregado.
  */
-const getAI = () => {
-    return new GoogleGenAI(getApiKey());
-};
+const genAI = new GoogleGenAI(getApiKey());
 
 /**
  * --- GERAÇÃO DE TEXTO & ROTEIRO (BRAIN) ---
- * Atualizado para gemini-3.1-flash-lite-preview para latência zero
+ * Camada de Inteligência: gemini-3.1-flash-lite-preview
  */
 export const generateText = async (prompt: string, isPro: boolean = false): Promise<string> => {
-    const genAI = getAI();
-    // Usando o modelo validado como o correto para a camada de lógica
-    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
-    
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let text = response.text() || "";
-    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    return text;
+    try {
+        // Usando o modelo validado como o correto para a camada de lógica
+        const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
+        
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        let text = response.text() || "";
+        text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+        return text;
+    } catch (error) {
+        console.error("Erro no generateText:", error);
+        throw error;
+    }
 };
 
 /**
@@ -90,6 +93,7 @@ export const generateNovelaScript = async (ideia: string, personagensDesc: strin
         const cleanJson = responseText.substring(start, end);
         return JSON.parse(cleanJson);
     } catch (e) {
+        console.error("Erro no script da novela:", e);
         throw new Error("Falha ao processar roteiro.");
     }
 };
@@ -98,7 +102,6 @@ export const generateNovelaScript = async (ideia: string, personagensDesc: strin
  * --- SUPORTE AO POSTCREATOR & IMAGEEDITOR ---
  */
 export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
-    const genAI = getAI();
     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
     
     let promptText = `Crie um prompt detalhado em inglês para geração de imagem de fundo. Tema: "${description}". Estética cinematográfica, 4k.`;
@@ -118,7 +121,6 @@ export const editImage = async (
     aspectRatio: AspectRatio, 
     referenceImage?: ImageFile
 ): Promise<string> => {
-    const genAI = getAI();
     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
 
     const parts: any[] = [
@@ -146,8 +148,8 @@ export const editImage = async (
  * --- GERAÇÃO DE IMAGEM (IMAGEN 4.0 - STATIC ASSETS) ---
  */
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
-    const ai = getAI();
-    const response = await (ai as any).models.generateImages({
+    // Para modelos específicos como o Imagen, usamos o acesso via genAI.models
+    const response = await (genAI as any).models.generateImages({
         model: 'imagen-4.0-generate-001',
         prompt: prompt,
         config: { numberOfImages: 1, aspectRatio },
@@ -167,26 +169,25 @@ export const generateVideo = async (
     prompt: string, 
     aspectRatio: '16:9' | '9:16', 
     onProgress: (message: string) => void,
-    apiKey?: string, 
     durationSeconds: 4 | 6 | 8 = 8 
 ): Promise<string> => {
-    const ai = getAI();
     onProgress(`Iniciando animação de ${durationSeconds}s...`);
     
-    let operation = await (ai as any).models.generateVideos({
+    const operation = await (genAI as any).models.generateVideos({
         model: 'veo-3.1-lite-generate-preview', 
         prompt,
         image: { imageBytes: image.base64, mimeType: image.mimeType || 'image/png' },
         config: { resolution: '720p', aspectRatio, durationSeconds }
     });
 
-    while (!operation.done) {
+    let currentOp = operation;
+    while (!currentOp.done) {
         await new Promise(resolve => setTimeout(resolve, 10000));
         onProgress("Processando frames cinematográficos...");
-        operation = await (ai as any).operations.getVideosOperation({ operation });
+        currentOp = await (genAI as any).operations.getVideosOperation({ operation: currentOp });
     }
 
-    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+    const downloadLink = currentOp.response?.generatedVideos?.[0]?.video?.uri;
     const videoResponse = await fetch(downloadLink, { headers: { 'x-goog-api-key': getApiKey() } });
     const videoBlob = await videoResponse.blob();
     return URL.createObjectURL(videoBlob);
@@ -196,7 +197,6 @@ export const generateVideo = async (
  * --- COMPOSIÇÃO & ANÁLISE ---
  */
 export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
-    const genAI = getAI();
     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
     
     const parts: any[] = images.map(img => ({ inlineData: { data: img.base64, mimeType: img.mimeType || 'image/png' } }));
@@ -215,12 +215,11 @@ export const generateSceneFromImages = async (images: ImageFile[], prompt: strin
 };
 
 export const analyzeImage = async (image: ImageFile): Promise<string> => {
-    const genAI = getAI();
     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
     
     const parts = [
         { inlineData: { mimeType: image.mimeType || 'image/png', data: image.base64 } }, 
-        { text: "Descreva esta imagem." }
+        { text: "Descreva esta imagem para prompt de vídeo." }
     ];
     
     const result = await model.generateContent({ contents: [{ role: 'user', parts }] });
