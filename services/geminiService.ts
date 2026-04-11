@@ -7,20 +7,19 @@ import { ImageFile, AspectRatio } from '../types';
  */
 const getApiKey = (): string => {
     const envKey = (import.meta as any).env?.VITE_API_KEY;
-    const hardcodedKey = ''; // Sua chave aqui se não usar .env
+    const hardcodedKey = ''; // Use apenas se o .env falhar
     const key = envKey || hardcodedKey;
     return key.trim();
 };
 
 const getAI = () => {
     const key = getApiKey();
-    // No browser, precisamos passar a chave e, em alguns casos, 
-    // garantir que o objeto de configuração esteja correto.
+    // Instanciação direta para evitar erros de contexto no navegador
     return new GoogleGenAI(key);
 };
 
 /**
- * Helper crucial para extrair base64 limpo
+ * Helper para extrair base64 limpo
  */
 const getCleanBase64 = (image: ImageFile): string => {
     if (!image) return "";
@@ -35,7 +34,6 @@ const getCleanBase64 = (image: ImageFile): string => {
  */
 export const generateText = async (prompt: string): Promise<string> => {
     const genAI = getAI();
-    // Usamos o Flash para textos rápidos e roteiros
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     const result = await model.generateContent(prompt);
@@ -50,8 +48,8 @@ export const generateText = async (prompt: string): Promise<string> => {
  */
 export const generateCastingPrompts = async (inputMassa: string): Promise<any[]> => {
     const prompt = `
-        Aja como um Engenheiro de Prompts especialista em personagens 3D antropomórficos.
-        Transforme esta ideia em um DNA estruturado: "${inputMassa}"
+        Aja como um Engenheiro de Prompts especialista em personagens 3D.
+        Transforme em DNA estruturado: "${inputMassa}"
         Retorne APENAS um array JSON:
         [{"fruit": "nome", "gender": "m/f", "age": "X", "style": "profissão", "fullPrompt": "prompt em inglês 3D render"}]
     `;
@@ -85,11 +83,10 @@ export const generateNovelaScript = async (ideia: string, personagensDesc: strin
 
 /**
  * --- IMAGEM (IMAGEN 4.0) ---
- * Nota: Imagen 4.0 geralmente requer Vertex AI ou acesso via gapi. 
- * Se estiver usando o SDK comum, certifique-se que seu modelo está liberado.
  */
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const genAI = getAI();
+    // Atenção: Certifique-se que sua chave tem acesso ao Imagen 4.0
     const response = await (genAI as any).models.generateImages({
         model: 'imagen-4.0-generate-001',
         prompt: prompt,
@@ -98,7 +95,7 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio): P
     if (response.generatedImages?.length > 0) {
         return `data:image/jpeg;base64,${response.generatedImages[0].image.imageBytes}`;
     }
-    throw new Error("Falha na imagem.");
+    throw new Error("Falha na geração da imagem.");
 };
 
 /**
@@ -136,28 +133,8 @@ export const generateVideo = async (
 };
 
 /**
- * --- COMPOSIÇÃO DE CENA ---
- */
-export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
-    const genAI = getAI();
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    const parts = images.map(img => ({
-        inlineData: { data: getCleanBase64(img), mimeType: 'image/png' }
-    }));
-    parts.push({ text: `Integre os elementos em uma cena única, sem textos: ${prompt}` });
-
-    const result = await model.generateContent({ contents: [{ role: 'user', parts }] });
-    const response = await result.response;
-
-    const resultPart = response.candidates[0].content.parts.find(p => p.inlineData);
-    if (resultPart) return `data:${resultPart.inlineData.mimeType};base64,${resultPart.inlineData.data}`;
-    
-    return await generateImage(prompt, aspectRatio);
-};
-
-/**
- * --- EDIÇÃO DE IMAGEM (IMAGEEDITOR) ---
+ * --- EDIÇÃO DE IMAGEM (MODO RIGOROSO) ---
+ * Esta função foi redesenhada para parar de "alucinar" cenas novas.
  */
 export const editImage = async (
     mainImage: ImageFile, 
@@ -167,9 +144,13 @@ export const editImage = async (
 ): Promise<string> => {
     const genAI = getAI();
     
-    // Pro é essencial aqui para obedecer "Preservar Rosto"
+    // O modelo PRO é essencial para respeitar os checkboxes de preservação
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-pro"
+        model: "gemini-1.5-pro",
+        generationConfig: {
+            temperature: 0.2, // Temperatura baixíssima para evitar que a IA mude o cenário
+            topP: 0.8,
+        }
     });
 
     const parts = [
@@ -191,13 +172,8 @@ export const editImage = async (
         });
     }
 
-    // Configuração de baixa temperatura para maior fidelidade
     const result = await model.generateContent({
-        contents: [{ role: "user", parts }],
-        generationConfig: {
-            temperature: 0.4,
-            topP: 0.8,
-        }
+        contents: [{ role: "user", parts }]
     });
 
     const response = await result.response;
@@ -207,7 +183,7 @@ export const editImage = async (
         return `data:${resultPart.inlineData.mimeType};base64,${resultPart.inlineData.data}`;
     }
 
-    // Fallback caso ele não retorne imagem direta
+    // Se o modelo pro retornar apenas texto, usamos o Imagen como fallback de renderização
     return await generateImage(prompt, aspectRatio);
 };
 
@@ -228,22 +204,15 @@ export const analyzeImage = async (image: ImageFile): Promise<string> => {
     return response.text();
 };
 
-/**
- * --- GERADOR DE PROMPT PARA FUNDO ---
- */
 export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
     const genAI = getAI();
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
-    let systemInstruction = `Act as a professional Image Editor. Describe an enhancement based on: "${description}". Output ONLY the prompt in English.`;
-
-    const parts = [{ text: systemInstruction }];
-    if (reference) {
-        parts.push({ inlineData: { mimeType: 'image/png', data: getCleanBase64(reference) } });
-    }
+    let promptText = `Crie um prompt em inglês técnico para fundo cinematográfico: "${description}". Output only the prompt.`;
+    const parts = [{ text: promptText }];
+    if (reference) parts.push({ inlineData: { mimeType: 'image/png', data: getCleanBase64(reference) } });
     
     const result = await model.generateContent({ contents: [{ role: 'user', parts }] });
     const response = await result.response;
-
-    return (response.text() || "").trim();
+    return response.text() || "";
 };
