@@ -17,9 +17,10 @@ const getAI = () => {
 };
 
 /**
- * Helper para extrair base64 limpo, independente da origem do dado (Upload ou API)
+ * Helper para extrair base64 limpo
  */
 const getCleanBase64 = (image: ImageFile): string => {
+    if (!image) return "";
     if (image.preview && image.preview.includes(',')) {
         return image.preview.split(',')[1];
     }
@@ -28,7 +29,6 @@ const getCleanBase64 = (image: ImageFile): string => {
 
 /**
  * --- GERAÇÃO DE TEXTO & ROTEIRO ---
- * Utilizado na Fábrica de Frutas e no Roteirista da Temporada
  */
 export const generateText = async (prompt: string): Promise<string> => {
     const ai = getAI();
@@ -46,14 +46,13 @@ export const generateText = async (prompt: string): Promise<string> => {
 
 /**
  * --- NOVELA: CASTING TÉCNICO ---
- * Utilizado na Fábrica de Frutas para gerar o DNA dos personagens
  */
 export const generateCastingPrompts = async (inputMassa: string): Promise<any[]> => {
     const prompt = `
         Aja como um Engenheiro de Prompts especialista em personagens 3D antropomórficos.
         Transforme esta ideia em um DNA estruturado: "${inputMassa}"
         Retorne APENAS um array JSON:
-        [{"fruit": "nome", "gender": "m/f", "age": "X", "style": "profissão", "fullPrompt": "prompt em inglês 3D render ultra-detalhado"}]
+        [{"fruit": "nome", "gender": "m/f", "age": "X", "style": "profissão", "fullPrompt": "prompt em inglês 3D render"}]
     `;
     const responseText = await generateText(prompt);
     try {
@@ -67,7 +66,6 @@ export const generateCastingPrompts = async (inputMassa: string): Promise<any[]>
 
 /**
  * --- NOVELA: GERADOR DE SCRIPT ---
- * Utilizado no Roteirista da Temporada na Fábrica de Frutas
  */
 export const generateNovelaScript = async (ideia: string, personagensDesc: string): Promise<any> => {
     const prompt = `
@@ -80,13 +78,12 @@ export const generateNovelaScript = async (ideia: string, personagensDesc: strin
         const end = responseText.lastIndexOf("]") + 1;
         return JSON.parse(responseText.substring(start, end));
     } catch (e) {
-        throw new Error("Falha ao processar roteiro.");
+        throw new Error("Falha no roteiro.");
     }
 };
 
 /**
  * --- IMAGEM (IMAGEN 4.0) ---
- * Produção individual de ativos na Fábrica de Frutas
  */
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const ai = getAI();
@@ -98,12 +95,11 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio): P
     if (response.generatedImages?.length > 0) {
         return `data:image/jpeg;base64,${response.generatedImages[0].image.imageBytes}`;
     }
-    throw new Error("Falha na geração da imagem.");
+    throw new Error("Falha na imagem.");
 };
 
 /**
  * --- VÍDEO (VEO 3.1 LITE) ---
- * Utilizado no VideoGenerator.tsx para animações de 8 segundos
  */
 export const generateVideo = async (
     image: ImageFile, 
@@ -113,7 +109,7 @@ export const generateVideo = async (
     durationSeconds: number = 8 
 ): Promise<string> => {
     const ai = getAI();
-    onProgress(`Animação de ${durationSeconds}s com Veo 3.1 Lite...`);
+    onProgress(`Iniciando animação de ${durationSeconds}s...`);
     
     const base64Data = getCleanBase64(image);
 
@@ -126,7 +122,7 @@ export const generateVideo = async (
 
     while (!operation.done) {
         await new Promise(resolve => setTimeout(resolve, 8000));
-        onProgress("Renderizando frames cinematográficos...");
+        onProgress("Processando frames cinematográficos...");
         operation = await (ai as any).operations.getVideosOperation({ operation });
     }
 
@@ -137,39 +133,43 @@ export const generateVideo = async (
 };
 
 /**
- * --- COMPOSIÇÃO DE CENA (SCENE COLLAGE) ---
- * Integra múltiplos ativos em uma cena única (Exencial para o Build)
+ * --- COMPOSIÇÃO DE CENA ---
  */
 export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const ai = getAI();
     const parts = images.map(img => ({
-        inlineData: { 
-            data: getCleanBase64(img), 
-            mimeType: 'image/png' 
-        }
+        inlineData: { data: getCleanBase64(img), mimeType: 'image/png' }
     }));
-    
-    parts.push({ text: `Integre estes elementos em uma única cena 3D coerente: ${prompt}. Estilo consistente.` });
+    parts.push({ text: `Integre os elementos: ${prompt}` });
 
     const response = await ai.models.generateContent({
         model: 'gemini-3.1-flash-lite-preview',
-        contents: [{ parts }],
-        config: { imageConfig: { aspectRatio } } as any,
+        contents: [{ parts }]
     });
 
     const resultPart = response.candidates[0].content.parts.find(p => p.inlineData);
     if (resultPart) return `data:${resultPart.inlineData.mimeType};base64,${resultPart.inlineData.data}`;
-    
     return await generateImage(prompt, aspectRatio);
 };
 
 /**
- * --- EDIÇÃO, ANÁLISE E BACKDROP ---
+ * --- EDIÇÃO DE IMAGEM (CORREÇÃO TS2554) ---
+ * Agora aceita 4 argumentos para ser compatível com o ImageEditor.tsx
  */
-export const editImage = async (mainImage: ImageFile, prompt: string, aspectRatio: AspectRatio): Promise<string> => {
-    return await generateSceneFromImages([mainImage], prompt, aspectRatio);
+export const editImage = async (
+    mainImage: ImageFile, 
+    prompt: string, 
+    aspectRatio: AspectRatio, 
+    referenceImage?: ImageFile
+): Promise<string> => {
+    const images = [mainImage];
+    if (referenceImage) images.push(referenceImage);
+    return await generateSceneFromImages(images, prompt, aspectRatio);
 };
 
+/**
+ * --- ANÁLISE E BACKDROP ---
+ */
 export const analyzeImage = async (image: ImageFile): Promise<string> => {
     const ai = getAI();
     const contents = {
@@ -184,13 +184,9 @@ export const analyzeImage = async (image: ImageFile): Promise<string> => {
 
 export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
     const ai = getAI();
-    let promptText = `Crie um prompt detalhado em inglês para background: "${description}".`;
+    let promptText = `Crie um prompt em inglês para fundo: "${description}".`;
     const parts = [{ text: promptText }];
-    
-    if (reference) {
-        parts.unshift({ inlineData: { mimeType: 'image/png', data: getCleanBase64(reference) } });
-    }
-    
+    if (reference) parts.unshift({ inlineData: { mimeType: 'image/png', data: getCleanBase64(reference) } });
     const response = await ai.models.generateContent({ model: 'gemini-3.1-flash-lite-preview', contents: [{ parts }] });
     return response.text || "";
 };
