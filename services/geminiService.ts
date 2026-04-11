@@ -3,40 +3,50 @@ import { GoogleGenAI } from "@google/genai";
 import { ImageFile, AspectRatio } from '../types';
 
 /**
+ * --- ECOSSISTEMA DE MODELOS (FÁBRICA DE FRUTAS 2026) ---
+ * Versão: 1.0.2 - Brain, Static & Motion
+ */
+const MODELS = {
+    CORE_AI: 'gemini-3.1-flash-lite-preview',
+    IMAGE_GEN: 'imagen-4.0-generate-001',
+    VIDEO_GEN: 'veo-3.1-lite-generate-preview',
+    VISION_EDITOR: 'gemini-3.1-flash-lite-preview'
+} as const;
+
+/**
  * --- CONFIGURAÇÃO DE SEGURANÇA ---
  */
 const getApiKey = (): string => {
     const envKey = (import.meta as any).env?.VITE_API_KEY;
-    const hardcodedKey = ''; // Use apenas em último caso
+    const hardcodedKey = ''; 
     const key = envKey || hardcodedKey;
-    return key?.trim() || "";
+    return key.trim();
 };
 
 /**
- * INSTANCIAÇÃO ROBUSTA:
- * Criamos a instância fora das funções para garantir que ela 
- * capture a chave assim que o módulo for carregado.
+ * LAZY LOAD: Proteção contra tela preta.
+ * Só instancia o SDK quando a primeira função for chamada.
  */
-const genAI = new GoogleGenAI(getApiKey());
+let apiInstance: GoogleGenAI | null = null;
+const getAI = () => {
+    const key = getApiKey();
+    if (!key) throw new Error("API Key não encontrada.");
+    if (!apiInstance) apiInstance = new GoogleGenAI(key);
+    return apiInstance;
+};
 
 /**
  * --- GERAÇÃO DE TEXTO & ROTEIRO (BRAIN) ---
- * Camada de Inteligência: gemini-3.1-flash-lite-preview
  */
 export const generateText = async (prompt: string, isPro: boolean = false): Promise<string> => {
-    try {
-        // Usando o modelo validado como o correto para a camada de lógica
-        const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
-        
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        let text = response.text() || "";
-        text = text.replace(/```json/g, "").replace(/```/g, "").trim();
-        return text;
-    } catch (error) {
-        console.error("Erro no generateText:", error);
-        throw error;
-    }
+    const ai = getAI();
+    const model = ai.getGenerativeModel({ model: MODELS.CORE_AI });
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let text = response.text() || "";
+    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return text;
 };
 
 /**
@@ -93,7 +103,6 @@ export const generateNovelaScript = async (ideia: string, personagensDesc: strin
         const cleanJson = responseText.substring(start, end);
         return JSON.parse(cleanJson);
     } catch (e) {
-        console.error("Erro no script da novela:", e);
         throw new Error("Falha ao processar roteiro.");
     }
 };
@@ -102,7 +111,8 @@ export const generateNovelaScript = async (ideia: string, personagensDesc: strin
  * --- SUPORTE AO POSTCREATOR & IMAGEEDITOR ---
  */
 export const createBackgroundImagePrompt = async (description: string, reference?: ImageFile): Promise<string> => {
-    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
+    const ai = getAI();
+    const model = ai.getGenerativeModel({ model: MODELS.VISION_EDITOR });
     
     let promptText = `Crie um prompt detalhado em inglês para geração de imagem de fundo. Tema: "${description}". Estética cinematográfica, 4k.`;
     const parts: any[] = [{ text: promptText }];
@@ -121,36 +131,31 @@ export const editImage = async (
     aspectRatio: AspectRatio, 
     referenceImage?: ImageFile
 ): Promise<string> => {
-    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
+    const ai = getAI();
+    const model = ai.getGenerativeModel({ model: MODELS.VISION_EDITOR });
 
-    const parts: any[] = [
-        { inlineData: { data: mainImage.base64, mimeType: mainImage.mimeType || 'image/png' } }
-    ];
+    const parts: any[] = [{ inlineData: { data: mainImage.base64, mimeType: mainImage.mimeType || 'image/png' } }];
     if (referenceImage) {
         parts.push({ inlineData: { data: referenceImage.base64, mimeType: referenceImage.mimeType || 'image/png' } });
     }
     parts.push({ text: prompt });
 
-    const result = await model.generateContent({
-        contents: [{ role: "user", parts }]
-    });
-
+    const result = await model.generateContent({ contents: [{ role: "user", parts }] });
     const response = await result.response;
+    
     for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
     }
-    
-    // Fallback para o Imagen 4.0 caso o Flash retorne apenas texto
     return await generateImage(prompt, aspectRatio);
 };
 
 /**
- * --- GERAÇÃO DE IMAGEM (IMAGEN 4.0 - STATIC ASSETS) ---
+ * --- GERAÇÃO DE IMAGEM (IMAGEN 4.0) ---
  */
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
-    // Para modelos específicos como o Imagen, usamos o acesso via genAI.models
-    const response = await (genAI as any).models.generateImages({
-        model: 'imagen-4.0-generate-001',
+    const ai = getAI();
+    const response = await (ai as any).models.generateImages({
+        model: MODELS.IMAGE_GEN,
         prompt: prompt,
         config: { numberOfImages: 1, aspectRatio },
     });
@@ -161,33 +166,33 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio): P
 };
 
 /**
- * --- VÍDEO (VEO 3.1 LITE - MOTION) ---
- * Atualizado para veo-3.1-lite-generate-preview
+ * --- VÍDEO (VEO 3.1 LITE - 8 SEGUNDOS) ---
  */
 export const generateVideo = async (
     image: ImageFile, 
     prompt: string, 
     aspectRatio: '16:9' | '9:16', 
     onProgress: (message: string) => void,
+    apiKey?: string, 
     durationSeconds: 4 | 6 | 8 = 8 
 ): Promise<string> => {
+    const ai = getAI();
     onProgress(`Iniciando animação de ${durationSeconds}s...`);
     
-    const operation = await (genAI as any).models.generateVideos({
-        model: 'veo-3.1-lite-generate-preview', 
+    let operation = await (ai as any).models.generateVideos({
+        model: MODELS.VIDEO_GEN, 
         prompt,
         image: { imageBytes: image.base64, mimeType: image.mimeType || 'image/png' },
         config: { resolution: '720p', aspectRatio, durationSeconds }
     });
 
-    let currentOp = operation;
-    while (!currentOp.done) {
+    while (!operation.done) {
         await new Promise(resolve => setTimeout(resolve, 10000));
-        onProgress("Processando frames cinematográficos...");
-        currentOp = await (genAI as any).operations.getVideosOperation({ operation: currentOp });
+        onProgress("Renderizando física realista...");
+        operation = await (ai as any).operations.getVideosOperation({ operation });
     }
 
-    const downloadLink = currentOp.response?.generatedVideos?.[0]?.video?.uri;
+    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
     const videoResponse = await fetch(downloadLink, { headers: { 'x-goog-api-key': getApiKey() } });
     const videoBlob = await videoResponse.blob();
     return URL.createObjectURL(videoBlob);
@@ -197,32 +202,23 @@ export const generateVideo = async (
  * --- COMPOSIÇÃO & ANÁLISE ---
  */
 export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
-    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
-    
-    const parts: any[] = images.map(img => ({ inlineData: { data: img.base64, mimeType: img.mimeType || 'image/png' } }));
+    const ai = getAI();
+    const model = ai.getGenerativeModel({ model: MODELS.VISION_EDITOR });
+    const parts = images.map(img => ({ inlineData: { data: img.base64, mimeType: img.mimeType || 'image/png' } }));
     parts.push({ text: `Integre estes elementos em uma cena: ${prompt}` });
 
-    const result = await model.generateContent({
-        contents: [{ role: "user", parts }]
-    });
-
+    const result = await model.generateContent({ contents: [{ role: "user", parts }] });
     const response = await result.response;
     for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
     }
-    
     return await generateImage(prompt, aspectRatio);
 };
 
 export const analyzeImage = async (image: ImageFile): Promise<string> => {
-    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
-    
-    const parts = [
-        { inlineData: { mimeType: image.mimeType || 'image/png', data: image.base64 } }, 
-        { text: "Descreva esta imagem para prompt de vídeo." }
-    ];
-    
+    const ai = getAI();
+    const model = ai.getGenerativeModel({ model: MODELS.VISION_EDITOR });
+    const parts = [{ inlineData: { mimeType: image.mimeType || 'image/png', data: image.base64 } }, { text: "Descreva esta imagem." }];
     const result = await model.generateContent({ contents: [{ role: 'user', parts }] });
-    const response = await result.response;
-    return response.text();
+    return result.response.text();
 };
