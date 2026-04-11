@@ -1,162 +1,158 @@
-// @ts-nocheck
 import React, { useState } from 'react';
-import FileUpload from './FileUpload';
-import { ImageFile, AspectRatio } from '../types';
-import { editImage, generateImage } from '../services/geminiService';
-import { SparklesIcon, MagnifyingGlassIcon, ShieldCheckIcon, XCircleIcon, PencilSquareIcon, PhotoIcon } from './Icons';
+import { AspectRatio } from '../types';
+import { generateImage } from '../services/geminiService';
+import { SparklesIcon, PhotoIcon } from './Icons';
 
-const ImageEditor: React.FC = () => {
-    const [image, setImage] = useState<ImageFile | null>(null);
-    const [referenceImage, setReferenceImage] = useState<ImageFile | null>(null);
+const AspectRatioToggle: React.FC<{
+  value: AspectRatio;
+  label: string;
+  current: AspectRatio;
+  onClick: (value: AspectRatio) => void;
+}> = ({ value, label, current, onClick }) => (
+  <button
+    onClick={() => onClick(value)}
+    className={`px-4 py-2 rounded-lg border-2 text-center transition-all text-sm font-semibold
+      ${current === value ? 'bg-red-500/20 border-red-500 text-white' : 'bg-gray-800/30 border-gray-700 hover:border-red-400 text-gray-300'}`}
+  >
+    {label}
+  </button>
+);
+
+const ImageGenerator: React.FC = () => {
     const [prompt, setPrompt] = useState('');
-    const [preserveFace, setPreserveFace] = useState(false);
-    const [preserveRefFace, setPreserveRefFace] = useState(false);
-    const [marketingMode, setMarketingMode] = useState(false);
-    const [aspectRatio, setAspectRatio] = useState<AspectRatio>('9:16');
+    const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
     const [isLoading, setIsLoading] = useState(false);
-    const [editedImage, setEditedImage] = useState<string | null>(null);
+    const [generatedImage, setGeneratedImage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // FUNÇÃO SIMPLES - GERA DO ZERO (Como era antes)
-    const handleGenerateNew = async () => {
+    const handleDownload = async () => {
+        if (!generatedImage) return;
+
+        try {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = generatedImage;
+
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return;
+
+                ctx.drawImage(img, 0, 0);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) return;
+
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.style.display = 'none';
+                    link.href = url;
+                    link.download = `CrIA-Base-Gen-${Date.now()}.png`;
+
+                    document.body.appendChild(link);
+                    link.click();
+
+                    setTimeout(() => {
+                        document.body.removeChild(link);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+                }, 'image/png');
+            };
+        } catch (err) {
+            console.error("Erro ao baixar:", err);
+            setError("Erro ao preparar download.");
+        }
+    };
+
+    const handleGenerate = async () => {
         if (!prompt) {
-            setError('Descreva o que você quer criar no campo de texto.');
+            setError('Por favor, insira um prompt para gerar a imagem.');
             return;
         }
         setIsLoading(true);
         setError(null);
-        setEditedImage(null);
+        setGeneratedImage(null);
+
         try {
-            // Usa a função pura de geração, ignorando as fotos de base
-            const result = await generateImage(prompt, aspectRatio);
-            setEditedImage(result);
+            // Utilizando a função pura conforme sua lógica antiga
+            const image = await generateImage(prompt, aspectRatio);
+            setGeneratedImage(image);
         } catch (e) {
-            setError('Erro ao gerar imagem nova.');
+            setError(e instanceof Error ? e.message : 'Ocorreu um erro desconhecido ao gerar a imagem.');
         } finally {
             setIsLoading(false);
         }
     };
 
-    // FUNÇÃO DE EDIÇÃO - USA A LÓGICA "ANTI-REBELDE"
-    const handleEditExisting = async () => {
-        if (!image || !prompt) {
-            setError('Para editar, você precisa enviar uma imagem base e um comando.');
-            return;
-        }
-        setIsLoading(true);
-        setError(null);
-        setEditedImage(null);
-        
-        let finalPrompt = `IMAGE EDITING MISSION: SURGICAL RETOUCHING.
-        Keep the character and background from Image 1. 
-        Only change: ${prompt}. 
-        No extra text.`;
-
-        if (preserveFace) finalPrompt += ` [CRITICAL: DO NOT CHANGE THE FACE].`;
-        if (preserveRefFace && referenceImage) finalPrompt += ` [ACTION: Use the face from Image 2].`;
-        if (marketingMode) finalPrompt += ` [ACTION: Maintain product texture from Image 2].`;
-        
-        try {
-            const result = await editImage(image, finalPrompt, aspectRatio, referenceImage ?? undefined);
-            setEditedImage(result);
-        } catch (e) {
-            setError('Erro ao editar imagem.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleDownload = () => {
-        if (!editedImage) return;
-        const link = document.createElement('a');
-        link.href = editedImage;
-        link.download = `criabase-${Date.now()}.png`;
-        link.click();
-    };
+    const inputClass = "w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors placeholder:text-gray-500 text-white";
+    const labelClass = "block mb-2 text-sm font-medium text-gray-300";
 
     return (
-        <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* COLUNA DA ESQUERDA: UPLOADS */}
-                <div className="space-y-4">
-                     <div>
-                        <h3 className="text-sm font-bold mb-2 text-red-500 uppercase tracking-tighter flex items-center gap-2">
-                           <PhotoIcon className="w-4 h-4" /> 1. Imagem de Base (Para Editar)
-                        </h3>
-                        <FileUpload onFileSelect={setImage} onFileClear={() => setImage(null)} />
-                    </div>
-                     <div>
-                        <h3 className="text-sm font-bold mb-2 text-gray-400 uppercase tracking-tighter flex items-center gap-2">
-                           <MagnifyingGlassIcon className="w-4 h-4" /> 2. Referência (Rosto/Produto)
-                        </h3>
-                        <FileUpload onFileSelect={setReferenceImage} onFileClear={() => setReferenceImage(null)} />
-                    </div>
-                </div>
-
-                {/* COLUNA DA DIREITA: COMANDOS */}
-                <div className="bg-gray-900/40 p-6 rounded-2xl border border-gray-800">
-                    <label className="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Comando para a IA</label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+            <div className="space-y-6">
+                <div>
+                    <label htmlFor="prompt" className={labelClass}>1. Descreva a Imagem</label>
                     <textarea
+                        id="prompt"
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
-                        placeholder="Ex: Crie Bruna loira em um café... OU ...Mude a cor do cabelo para loiro..."
-                        className="w-full p-4 bg-black border border-gray-700 rounded-xl text-white text-sm mb-4 focus:border-red-500 outline-none"
-                        rows={3}
+                        placeholder="Ex: Um jogador de futebol do Internacional comemorando um gol no estádio Beira-Rio, estilo hyper-realista, iluminação dramática..."
+                        rows={5}
+                        className={inputClass}
                     />
+                </div>
 
-                    <div className="flex flex-wrap gap-2 mb-6">
-                        {['9:16', '16:9', '1:1'].map((r) => (
-                            <button key={r} onClick={() => setAspectRatio(r)} className={`px-3 py-1 rounded-lg text-xs font-bold border ${aspectRatio === r ? 'bg-red-600 border-red-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400'}`}>{r}</button>
-                        ))}
-                    </div>
-
-                    <div className="space-y-2 mb-6">
-                        <label className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase cursor-pointer">
-                            <input type="checkbox" checked={preserveFace} onChange={() => setPreserveFace(!preserveFace)} className="accent-red-600" />
-                            Preservar Rosto Original
-                        </label>
-                        <label className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase cursor-pointer">
-                            <input type="checkbox" checked={preserveRefFace} onChange={() => setPreserveRefFace(!preserveRefFace)} className="accent-red-600" />
-                            Usar Rosto da Referência
-                        </label>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <button 
-                            onClick={handleGenerateNew} 
-                            disabled={isLoading}
-                            className="py-3 px-4 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest border border-gray-600 transition-all"
-                        >
-                            Gerar do Zero
-                        </button>
-                        <button 
-                            onClick={handleEditExisting} 
-                            disabled={isLoading}
-                            className="py-3 px-4 bg-red-600 hover:bg-red-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-900/20 transition-all"
-                        >
-                            Aplicar Edição
-                        </button>
+                <div>
+                    <h3 className={labelClass}>2. Escolha a Proporção</h3>
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                        <AspectRatioToggle value="1:1" label="1:1" current={aspectRatio} onClick={setAspectRatio} />
+                        <AspectRatioToggle value="16:9" label="16:9" current={aspectRatio} onClick={setAspectRatio} />
+                        <AspectRatioToggle value="9:16" label="9:16" current={aspectRatio} onClick={setAspectRatio} />
+                        <AspectRatioToggle value="4:3" label="4:3" current={aspectRatio} onClick={setAspectRatio} />
+                        <AspectRatioToggle value="3:4" label="3:4" current={aspectRatio} onClick={setAspectRatio} />
                     </div>
                 </div>
+                
+                <button 
+                    onClick={handleGenerate} 
+                    disabled={isLoading || !prompt}
+                    className="w-full flex items-center justify-center gap-2 text-lg font-bold py-4 px-6 rounded-xl bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
+                >
+                    {isLoading ? 'Gerando Imagem...' : 'Gerar Imagem'}
+                    <SparklesIcon className="w-5 h-5" />
+                </button>
             </div>
 
-            {/* ÁREA DE RESULTADO */}
-            <div className="mt-8 flex justify-center">
-                <div className="w-full max-w-md bg-black/60 border border-gray-800 rounded-3xl p-4 min-h-[400px] flex flex-col items-center justify-center relative">
-                    {isLoading ? (
-                        <div className="animate-pulse text-red-500 font-black uppercase text-xs">Processando...</div>
-                    ) : editedImage ? (
-                        <>
-                            <img src={editedImage} className="rounded-2xl w-full mb-4 shadow-2xl" />
-                            <button onClick={handleDownload} className="w-full py-3 bg-white text-black font-black rounded-xl text-[10px] uppercase tracking-widest">Baixar PNG</button>
-                        </>
-                    ) : (
-                        <div className="opacity-20 text-center uppercase font-black text-[10px] tracking-[0.3em]">Aguardando</div>
-                    )}
-                </div>
+            <div className="flex flex-col items-center justify-center h-full bg-gray-900/50 rounded-lg p-4 min-h-[400px] md:min-h-full border border-gray-800 border-dashed">
+                {isLoading && (
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div>
+                        <p className="mt-4 text-gray-300 font-bold uppercase text-[10px] tracking-widest">Criando sua imagem...</p>
+                    </div>
+                )}
+                {error && <p className="text-red-400 text-center font-bold text-sm">{error}</p>}
+                {generatedImage && (
+                    <div className="w-full">
+                        <img src={generatedImage} alt="Generated" className="rounded-lg w-full object-contain mb-4 shadow-2xl border border-gray-700" />
+                        <button 
+                            onClick={handleDownload}
+                            className="inline-block w-full text-center py-3 px-4 bg-red-600 hover:bg-red-700 rounded-lg text-white font-bold transition-colors uppercase tracking-widest text-xs"
+                        >
+                            Baixar Imagem (.PNG)
+                        </button>
+                    </div>
+                )}
+                {!isLoading && !error && !generatedImage && (
+                    <div className="text-center text-gray-600">
+                       <PhotoIcon className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                       <p className="font-bold uppercase text-[10px] tracking-widest opacity-40">Aguardando seu comando</p>
+                    </div>
+                )}
             </div>
         </div>
     );
 };
 
-export default ImageEditor;
+export default ImageGenerator;
