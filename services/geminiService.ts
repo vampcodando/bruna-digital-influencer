@@ -132,8 +132,16 @@ export const editImage = async (
     aspectRatio: AspectRatio, 
     referenceImage?: ImageFile
 ): Promise<string> => {
-    // Adiciona o aspect ratio ao prompt para modelos que não o suportam via config
-    prompt = `${prompt} (aspect ratio: ${aspectRatio})`;
+    // Adiciona o aspect ratio como instrução visual para evitar texto na imagem
+    const ratioMap: Record<string, string> = {
+        '16:9': 'wide cinematic landscape orientation, 16:9 framing',
+        '9:16': 'vertical smartphone portrait orientation, 9:16 framing',
+        '1:1': 'square composition, 1:1 framing',
+        '4:3': 'standard photography landscape orientation, 4:3 framing',
+        '3:4': 'standard photography portrait orientation, 3:4 framing'
+    };
+    const ratioInstruction = ratioMap[aspectRatio] || `framing in ${aspectRatio} aspect ratio`;
+    prompt = `${prompt}. Style: ${ratioInstruction}.`;
     const ai = getAI();
     const parts: any[] = [{ inlineData: { data: mainImage.base64.split(',')[1] || mainImage.base64, mimeType: mainImage.mimeType } }];
     if (referenceImage) {
@@ -181,8 +189,16 @@ export const editImage = async (
  * --- GERAÇÃO DE IMAGEM (IMAGEN 4.0) ---
  */
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
-    // Adiciona o aspect ratio ao prompt para modelos que não o suportam via config de forma confiável
-    prompt = `${prompt} (aspect ratio: ${aspectRatio})`;
+    // Adiciona o aspect ratio como instrução visual para evitar texto na imagem
+    const ratioMap: Record<string, string> = {
+        '16:9': 'wide cinematic landscape orientation, 16:9 framing',
+        '9:16': 'vertical smartphone portrait orientation, 9:16 framing',
+        '1:1': 'square composition, 1:1 framing',
+        '4:3': 'standard photography landscape orientation, 4:3 framing',
+        '3:4': 'standard photography portrait orientation, 3:4 framing'
+    };
+    const ratioInstruction = ratioMap[aspectRatio] || `framing in ${aspectRatio} aspect ratio`;
+    prompt = `${prompt}. Style: ${ratioInstruction}.`;
     const ai = getAI();
     const response = await (ai as any).models.generateImages({
         model: FRUIT_FACTORY_MODELS.IMAGE_GEN,
@@ -244,8 +260,16 @@ export const generateVideo = async (
  * --- COMPOSIÇÃO & ANÁLISE ---
  */
 export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
-    // Adiciona o aspect ratio ao prompt para modelos que não o suportam via config
-    prompt = `${prompt} (aspect ratio: ${aspectRatio})`;
+    // Adiciona o aspect ratio como instrução visual para evitar texto na imagem
+    const ratioMap: Record<string, string> = {
+        '16:9': 'wide cinematic landscape orientation, 16:9 framing',
+        '9:16': 'vertical smartphone portrait orientation, 9:16 framing',
+        '1:1': 'square composition, 1:1 framing',
+        '4:3': 'standard photography landscape orientation, 4:3 framing',
+        '3:4': 'standard photography portrait orientation, 3:4 framing'
+    };
+    const ratioInstruction = ratioMap[aspectRatio] || `framing in ${aspectRatio} aspect ratio`;
+    prompt = `${prompt}. Style: ${ratioInstruction}.`;
     const ai = getAI();
     const parts: any[] = images.map(img => ({ inlineData: { data: img.base64.split(',')[1] || img.base64, mimeType: img.mimeType } }));
     parts.push({ text: `Integre estes elementos em uma cena: ${prompt}` });
