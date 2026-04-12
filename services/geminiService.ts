@@ -10,7 +10,7 @@ export const FRUIT_FACTORY_MODELS = {
     CORE_AI: 'gemini-3.1-flash-lite-preview',
     
     /** Geração de Personagens e Fotos */
-    IMAGE_GEN: 'imagen-4.0-fast-generate-001',
+    IMAGE_GEN: 'imagen-4.0-generate-001',
     
     /** Animação de 8 segundos (Novelas) */
     VIDEO_GEN: 'veo-3.1-lite-generate-preview',
