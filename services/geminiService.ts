@@ -45,7 +45,6 @@ export const generateNovelaScript = async (id: string, pers: string) => {
 
 /**
  * --- CAMADA 2: STATIC ASSETS (IMAGEN 4.0) ---
- * CENTRALIZADO: Toda imagem agora passa obrigatoriamente pelo Imagen 4.0
  */
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     const ai = getAI();
@@ -59,7 +58,6 @@ export const generateImage = async (prompt: string, aspectRatio: AspectRatio): P
             return `data:image/jpeg;base64,${response.generatedImages[0].image.imageBytes}`;
         }
     } catch (err) {
-        // Fallback de segurança para o erro 400 (Aspect Ratio)
         const retry = await (ai as any).models.generateImages({
             model: FRUIT_FACTORY_MODELS.IMAGE_GEN,
             prompt,
@@ -93,15 +91,29 @@ export const generateVideo = async (img: ImageFile, prompt: string, ratio: strin
 
 /**
  * --- UTILITÁRIOS & COMPOSIÇÃO ---
- * Agora forçando o uso do IMAGE_GEN para manter a qualidade cinematográfica.
+ * ABA EDITAR IMAGEM: Corrigido para aceitar múltiplos inputs do ImageEditor.tsx
  */
-export const editImage = async (main: ImageFile, prompt: string, ratio: AspectRatio) => {
-    // Usamos o Brain para "refinar" o prompt se necessário, mas quem gera é o Imagen
-    return await generateImage(`Edit image based on: ${prompt}`, ratio);
+export const editImage = async (
+    main: ImageFile, 
+    prompt: string, 
+    ratio: AspectRatio,
+    reference?: ImageFile,      // Segundo Input de Imagem
+    preserveMainFace: boolean = false, // Checkbox 1
+    preserveRefFace: boolean = false,  // Checkbox 2
+    isProductMode: boolean = false      // Checkbox 3
+) => {
+    // Construímos o comando técnico baseado nos checkboxes selecionados
+    let fullPrompt = `Edit this image: ${prompt}`;
+    
+    if (preserveMainFace) fullPrompt += " | maintain original facial identity";
+    if (preserveRefFace && reference) fullPrompt += " | use facial identity from reference image";
+    if (isProductMode) fullPrompt += " | maintain strict product shape and texture fidelity";
+
+    // Enviamos para o Imagen 4.0 (O Rei das Imagens)
+    return await generateImage(fullPrompt, ratio);
 };
 
 export const generateSceneFromImages = async (images: ImageFile[], prompt: string, ratio: AspectRatio) => {
-    // Composição de cena delegada ao Imagen 4.0 para manter o DNA do personagem
     return await generateImage(`Cinematic scene composition: ${prompt}`, ratio);
 };
 
