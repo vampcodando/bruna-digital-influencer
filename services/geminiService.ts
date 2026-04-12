@@ -141,16 +141,40 @@ export const editImage = async (
     }
     parts.push({ text: prompt });
 
-    const response = await ai.models.generateContent({
-        model: FRUIT_FACTORY_MODELS.VISION_EDITOR,
-        contents: { parts },
-        config: {} as any,
-    });
+    try {
+        const response = await ai.models.generateContent({
+            model: FRUIT_FACTORY_MODELS.VISION_EDITOR,
+            contents: { parts },
+            config: {} as any,
+        });
 
-    for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        if (!response.candidates || response.candidates.length === 0) {
+            console.error("Nenhum candidato retornado pelo Gemini:", response);
+            throw new Error("O modelo não gerou nenhum resultado.");
+        }
+
+        const candidate = response.candidates[0];
+        if (!candidate.content || !candidate.content.parts) {
+            console.error("Conteúdo do candidato inválido:", candidate);
+            throw new Error("Resposta do modelo em formato inesperado.");
+        }
+
+        for (const part of candidate.content.parts) {
+            if (part.inlineData) {
+                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            }
+        }
+
+        console.error("Nenhuma imagem encontrada nas partes da resposta:", candidate.content.parts);
+        throw new Error("A resposta não contém dados de imagem.");
+    } catch (error: any) {
+        console.error("ERRO DETALHADO NA EDIÇÃO DE IMAGEM:", {
+            mensagem: error.message,
+            stack: error.stack,
+            detalhes: error.response?.data || error
+        });
+        throw new Error(`Falha ao editar imagem: ${error.message}`);
     }
-    throw new Error("Falha ao editar imagem.");
 };
 
 /**
