@@ -132,6 +132,8 @@ export const editImage = async (
     aspectRatio: AspectRatio, 
     referenceImage?: ImageFile
 ): Promise<string> => {
+    // Adiciona o aspect ratio ao prompt para modelos que não o suportam via config
+    prompt = `${prompt} (aspect ratio: ${aspectRatio})`;
     const ai = getAI();
     const parts: any[] = [{ inlineData: { data: mainImage.base64.split(',')[1] || mainImage.base64, mimeType: mainImage.mimeType } }];
     if (referenceImage) {
@@ -142,7 +144,7 @@ export const editImage = async (
     const response = await ai.models.generateContent({
         model: FRUIT_FACTORY_MODELS.VISION_EDITOR,
         contents: { parts },
-        config: { imageConfig: { aspectRatio } } as any,
+        config: {} as any,
     });
 
     for (const part of response.candidates[0].content.parts) {
@@ -155,11 +157,13 @@ export const editImage = async (
  * --- GERAÇÃO DE IMAGEM (IMAGEN 4.0) ---
  */
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
+    // Adiciona o aspect ratio ao prompt para modelos que não o suportam via config de forma confiável
+    prompt = `${prompt} (aspect ratio: ${aspectRatio})`;
     const ai = getAI();
     const response = await (ai as any).models.generateImages({
         model: FRUIT_FACTORY_MODELS.IMAGE_GEN,
         prompt: prompt,
-        config: { numberOfImages: 1, aspectRatio },
+        config: { numberOfImages: 1 },
     });
     if (response.generatedImages && response.generatedImages.length > 0) {
         return `data:image/jpeg;base64,${response.generatedImages[0].image.imageBytes}`;
@@ -216,13 +220,15 @@ export const generateVideo = async (
  * --- COMPOSIÇÃO & ANÁLISE ---
  */
 export const generateSceneFromImages = async (images: ImageFile[], prompt: string, aspectRatio: AspectRatio): Promise<string> => {
+    // Adiciona o aspect ratio ao prompt para modelos que não o suportam via config
+    prompt = `${prompt} (aspect ratio: ${aspectRatio})`;
     const ai = getAI();
     const parts: any[] = images.map(img => ({ inlineData: { data: img.base64.split(',')[1] || img.base64, mimeType: img.mimeType } }));
     parts.push({ text: `Integre estes elementos em uma cena: ${prompt}` });
     const response = await ai.models.generateContent({
         model: FRUIT_FACTORY_MODELS.VISION_EDITOR,
         contents: { parts },
-        config: { imageConfig: { aspectRatio } } as any,
+        config: {} as any,
     });
     for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
