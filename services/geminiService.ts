@@ -10,10 +10,10 @@ export const FRUIT_FACTORY_MODELS = {
     CORE_AI: 'gemini-3.1-flash-lite-preview',
     
     /** Geração de Personagens e Fotos */
-    IMAGE_GEN: 'imagen-4.0-generate-001',
+    IMAGE_GEN: 'gemini-3.1-flash-lite-preview',
     
     /** Animação de 8 segundos (Novelas) */
-    VIDEO_GEN: 'veo-3.1-lite-generate-preview',
+    VIDEO_GEN: 'veo-3.1-lite-generate-001',
     
     /** Edição e Análise Visual */
     VISION_EDITOR: 'gemini-3.1-flash-lite-preview'
@@ -186,7 +186,7 @@ export const editImage = async (
 };
 
 /**
- * --- GERAÇÃO DE IMAGEM (IMAGEN 4.0) ---
+ * --- GERAÇÃO DE IMAGEM ---
  */
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
     // Adiciona o aspect ratio como instrução visual para evitar texto na imagem
